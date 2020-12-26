@@ -39,10 +39,10 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         const { level } = this.props;
         return Node('canvas', {
             ref: this.canvasSet,
-            width: (level.w+1) * 10 * 0.6,
+            width: (level.w+1) * 10,
             height: level.h * 10,
             style: {
-                width: `${(level.w+1) * 10 * 0.6}px`,
+                width: `${(level.w+1) * 10}px`,
                 height: `${level.h * 10}px`,
                 border: '1px dashed white',
                 position: 'absolute',
@@ -102,7 +102,7 @@ const LevelGameContainer = ({ w, h, N, children }: {
     }, [
         Node('div', {
             style: {
-                width: `${(w+1) * N * 0.6}px`,
+                width: `${(w+1) * N}px`,
                 height: `${h * N}px`,
                 position: 'relative',
                 backgroundColor: 'green',
@@ -123,8 +123,8 @@ function RenderedLevel({
             if (level.isPath(y, x))
             blocks.push(Node(Block, {
                 top: y * N,
-                left: x * N * 0.6,
-                width: N * 1.0,
+                left: x * N,
+                width: N,
                 height: N,
                 color: 'black',
             }));

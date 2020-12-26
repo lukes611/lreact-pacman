@@ -420,7 +420,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.Level = exports.level1 = void 0;
-var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   +---+    \n|       |       |    \n+-------+   +---+---+\n        |   |       |\n        |   |       |\n        |   |       |\nt---p-------+   ----+\n        |   |        \n        |   +--------\n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n+---------------+----\n";
+var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   |        \n|       |   |        \n|       |   +---+    \n|       |       |    \n|       |       |    \n|       |       |    \n+-------+   +---+---+\n        |   |       |\n        |   |       |\n        |   |       |\n        |   |       |\n        |   |       |\nt---p-------+   ----+\n        |   |        \n        |   |        \n        |   |        \n        |   +--------\n        |   |        \n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n|               |    \n+---------------+----\n";
 exports.level1 = halfLevel1.split('\n').map(function (line) {
   if (line.startsWith('#')) return line;
   var secondHalf = line.substring(0, line.length - 1).split('').reverse().join('');
@@ -603,10 +603,10 @@ function (_super) {
     var level = this.props.level;
     return Node('canvas', {
       ref: this.canvasSet,
-      width: (level.w + 1) * 10 * 0.6,
+      width: (level.w + 1) * 10,
       height: level.h * 10,
       style: {
-        width: (level.w + 1) * 10 * 0.6 + "px",
+        width: (level.w + 1) * 10 + "px",
         height: level.h * 10 + "px",
         border: '1px dashed white',
         position: 'absolute',
@@ -653,7 +653,7 @@ var LevelGameContainer = function LevelGameContainer(_a) {
     }
   }, [Node('div', {
     style: {
-      width: (w + 1) * N * 0.6 + "px",
+      width: (w + 1) * N + "px",
       height: h * N + "px",
       position: 'relative',
       backgroundColor: 'green'
@@ -670,8 +670,8 @@ function RenderedLevel(_a) {
     for (var x = 0; x < level.w; x++) {
       if (level.isPath(y, x)) blocks.push(Node(Block, {
         top: y * N,
-        left: x * N * 0.6,
-        width: N * 1.0,
+        left: x * N,
+        width: N,
         height: N,
         color: 'black'
       }));
