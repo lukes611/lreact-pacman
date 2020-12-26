@@ -6,7 +6,7 @@ export class VElem {
     value?: string;
     _name?: string;
     _parent?: VElem;
-    _elem?: HTMLElement;
+    _elem?: HTMLElement | Text;
     _dom?: HTMLElement;
     isRoot: boolean = false;
     componentDidMount?: () => void;
@@ -22,7 +22,7 @@ export class VElem {
 
     toString() {
         if (this.isTextNode) {
-            return JSON.stringify(this.value);
+            return this.value.toString();
         }
         const { props, type, children } = this;
         return `<${type} props="${JSON.stringify(props)}">
@@ -30,6 +30,13 @@ export class VElem {
                 </${type}>
         `;
     }
+
+    getElem(): { type: 'text', e: Text } | { type: 'elem', e: HTMLElement } | undefined {
+        if (!this._elem) return undefined;
+        if (this.isTextNode) return { type: 'text', e: this._elem as Text };
+        return { type: 'elem', e: this._elem as HTMLElement };
+    }
+
 }
 
 export function Text(v: string) {
@@ -126,13 +133,13 @@ export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem) {
     const { props, children, type } = tree;
     if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
         // replace attributes
-        const element = prevTree._elem;
-        if(!objectsShallowEqual(props, prevTree.props)) assignProps(element, props);
-        tree._elem = element;
+        const pte = prevTree.getElem()!;
+        if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') assignProps(pte.e, props);
+        tree._elem = pte.e;
         tree._parent = prevTree._parent;
 
-        if (tree.isTextNode) {
-            element.innerHTML = tree.toString();
+        if (tree.isTextNode && pte.type === 'text') {
+            pte.e.data = tree.toString();
         } else {
             loopThroughChildren(tree, prevTree, (c, pc, i) => {
                 modifyTree(c, tree, pc);
@@ -143,7 +150,10 @@ export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem) {
         }
     } else {
         // replace this node and all children
-        const element = document.createElement(type);
+
+        const element = tree.isTextNode
+            ? document.createTextNode(tree.value)
+            : document.createElement(type);
         tree._elem = element;
         tree._parent = parent;
         if (prevTree) {
@@ -153,22 +163,20 @@ export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem) {
             parent._elem.appendChild(element);
         }
         tree.componentDidMount?.();
-        assignProps(element, props);
+        const te = tree.getElem();
+        if (te && te.type === 'elem')
+            assignProps(te.e, props);
 
         if (props.ref) {
             props.ref(tree._elem);
         }
 
-        if (tree.isTextNode) {
-            tree._elem.appendChild(document.createTextNode(tree.toString()));
-        } else {
-            loopThroughChildren(tree, prevTree, (c, pc, i) => {
-                modifyTree(c, tree, undefined);
-            }, (pc, i) => {
-                prevTree._elem.removeChild(pc._elem);
-                prevTree.componentDidUnmount?.();
-            })
-        }
+        loopThroughChildren(tree, prevTree, (c, pc, i) => {
+            modifyTree(c, tree, undefined);
+        }, (pc, i) => {
+            prevTree._elem.removeChild(pc._elem);
+            prevTree.componentDidUnmount?.();
+        });
 
     }
 }

@@ -163,7 +163,7 @@ function () {
 
   VElem.prototype.toString = function () {
     if (this.isTextNode) {
-      return JSON.stringify(this.value);
+      return this.value.toString();
     }
 
     var _a = this,
@@ -174,6 +174,18 @@ function () {
     return "<" + type + " props=\"" + JSON.stringify(props) + "\">\n                        " + children.map(function (c) {
       return c.toString();
     }).join('\n') + "\n                </" + type + ">\n        ";
+  };
+
+  VElem.prototype.getElem = function () {
+    if (!this._elem) return undefined;
+    if (this.isTextNode) return {
+      type: 'text',
+      e: this._elem
+    };
+    return {
+      type: 'elem',
+      e: this._elem
+    };
   };
 
   return VElem;
@@ -290,13 +302,13 @@ function modifyTree(tree, parent, prevTree) {
 
   if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
     // replace attributes
-    var element = prevTree._elem;
-    if (!objectsShallowEqual(props, prevTree.props)) assignProps(element, props);
-    tree._elem = element;
+    var pte = prevTree.getElem();
+    if (!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') assignProps(pte.e, props);
+    tree._elem = pte.e;
     tree._parent = prevTree._parent;
 
-    if (tree.isTextNode) {
-      element.innerHTML = tree.toString();
+    if (tree.isTextNode && pte.type === 'text') {
+      pte.e.data = tree.toString();
     } else {
       loopThroughChildren(tree, prevTree, function (c, pc, i) {
         modifyTree(c, tree, pc);
@@ -310,7 +322,7 @@ function modifyTree(tree, parent, prevTree) {
     }
   } else {
     // replace this node and all children
-    var element = document.createElement(type);
+    var element = tree.isTextNode ? document.createTextNode(tree.value) : document.createElement(type);
     tree._elem = element;
     tree._parent = parent;
 
@@ -323,25 +335,22 @@ function modifyTree(tree, parent, prevTree) {
     }
 
     (_b = tree.componentDidMount) === null || _b === void 0 ? void 0 : _b.call(tree);
-    assignProps(element, props);
+    var te = tree.getElem();
+    if (te && te.type === 'elem') assignProps(te.e, props);
 
     if (props.ref) {
       props.ref(tree._elem);
     }
 
-    if (tree.isTextNode) {
-      tree._elem.appendChild(document.createTextNode(tree.toString()));
-    } else {
-      loopThroughChildren(tree, prevTree, function (c, pc, i) {
-        modifyTree(c, tree, undefined);
-      }, function (pc, i) {
-        var _a;
+    loopThroughChildren(tree, prevTree, function (c, pc, i) {
+      modifyTree(c, tree, undefined);
+    }, function (pc, i) {
+      var _a;
 
-        prevTree._elem.removeChild(pc._elem);
+      prevTree._elem.removeChild(pc._elem);
 
-        (_a = prevTree.componentDidUnmount) === null || _a === void 0 ? void 0 : _a.call(prevTree);
-      });
-    }
+      (_a = prevTree.componentDidUnmount) === null || _a === void 0 ? void 0 : _a.call(prevTree);
+    });
   }
 }
 
@@ -404,7 +413,293 @@ function Init(node, domParent) {
 }
 
 exports.Init = Init;
-},{}],"index.ts":[function(require,module,exports) {
+},{}],"pacman/game.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Level = exports.level1 = void 0;
+var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   +---+    \n|       |       |    \n+-------+   +---+---+\n        |   |       |\n        |   |       |\n        |   |       |\nt---p-------+   ----+\n        |   |        \n        |   +--------\n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n+---------------+----\n";
+exports.level1 = halfLevel1.split('\n').map(function (line) {
+  if (line.startsWith('#')) return line;
+  var secondHalf = line.substring(0, line.length - 1).split('').reverse().join('');
+  return line + secondHalf;
+}).join('\n');
+
+var Level =
+/** @class */
+function () {
+  function Level(levelString) {
+    this.level = levelString.split('\n').slice(1).map(function (s) {
+      return s.split('');
+    });
+    this.w = this.level[0].length;
+    this.h = this.level.length;
+  }
+
+  Level.createLevel1 = function () {
+    return new Level(exports.level1);
+  };
+
+  Level.prototype.isPath = function (r, c) {
+    var v = this.getV(r, c);
+    return v && v !== ' ';
+  };
+
+  Level.prototype.getV = function (r, c) {
+    var v = this.level[r][c];
+    return v;
+  };
+
+  return Level;
+}();
+
+exports.Level = Level;
+},{}],"pacman/index.ts":[function(require,module,exports) {
+"use strict";
+
+var __extends = this && this.__extends || function () {
+  var _extendStatics = function extendStatics(d, b) {
+    _extendStatics = Object.setPrototypeOf || {
+      __proto__: []
+    } instanceof Array && function (d, b) {
+      d.__proto__ = b;
+    } || function (d, b) {
+      for (var p in b) {
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+      }
+    };
+
+    return _extendStatics(d, b);
+  };
+
+  return function (d, b) {
+    _extendStatics(d, b);
+
+    function __() {
+      this.constructor = d;
+    }
+
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+  };
+}();
+
+var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
+  if (k2 === undefined) k2 = k;
+  Object.defineProperty(o, k2, {
+    enumerable: true,
+    get: function get() {
+      return m[k];
+    }
+  });
+} : function (o, m, k, k2) {
+  if (k2 === undefined) k2 = k;
+  o[k2] = m[k];
+});
+
+var __setModuleDefault = this && this.__setModuleDefault || (Object.create ? function (o, v) {
+  Object.defineProperty(o, "default", {
+    enumerable: true,
+    value: v
+  });
+} : function (o, v) {
+  o["default"] = v;
+});
+
+var __importStar = this && this.__importStar || function (mod) {
+  if (mod && mod.__esModule) return mod;
+  var result = {};
+  if (mod != null) for (var k in mod) {
+    if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+  }
+
+  __setModuleDefault(result, mod);
+
+  return result;
+};
+
+var __spreadArrays = this && this.__spreadArrays || function () {
+  for (var s = 0, i = 0, il = arguments.length; i < il; i++) {
+    s += arguments[i].length;
+  }
+
+  for (var r = Array(s), k = 0, i = 0; i < il; i++) {
+    for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++) {
+      r[k] = a[j];
+    }
+  }
+
+  return r;
+};
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Game = void 0;
+
+var LReact = __importStar(require("../l_react"));
+
+var game_1 = require("./game");
+
+var Node = LReact.Node,
+    Text = LReact.Text;
+
+var Game =
+/** @class */
+function (_super) {
+  __extends(Game, _super);
+
+  function Game(props) {
+    var _this = _super.call(this, props) || this;
+
+    _this.level = game_1.Level.createLevel1();
+    return _this;
+  }
+
+  Game.prototype.render = function () {
+    var N = 10;
+    return Node('div', {}, [Text('pacman'), Node('pre', {}, [Text(game_1.level1), Text('cool')]), Node(LevelGameContainer, {
+      N: 10,
+      w: this.level.w,
+      h: this.level.h
+    }, [Node(RenderedLevel, {
+      level: this.level
+    }), Node(AnimatedGame, {
+      level: this.level
+    }, [])])]);
+  };
+
+  return Game;
+}(LReact.Component);
+
+exports.Game = Game;
+
+var AnimatedGame =
+/** @class */
+function (_super) {
+  __extends(AnimatedGame, _super);
+
+  function AnimatedGame(props) {
+    var _this = _super.call(this, props) || this;
+
+    _this.canvasSet = function (canvas) {
+      var ctx = canvas.getContext('2d');
+      _this.ctx = ctx; // ctx.fillStyle = 'yellow';
+      // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
+      // ctx.fill();
+      // ctx.closePath();
+
+      _this.drawPacMan(90, {
+        x: 100,
+        y: 100
+      }, 0.05);
+    };
+
+    return _this;
+  }
+
+  AnimatedGame.prototype.render = function () {
+    var level = this.props.level;
+    return Node('canvas', {
+      ref: this.canvasSet,
+      width: (level.w + 1) * 10 * 0.6,
+      height: level.h * 10,
+      style: {
+        width: (level.w + 1) * 10 * 0.6 + "px",
+        height: level.h * 10 + "px",
+        border: '1px dashed white',
+        position: 'absolute',
+        zIndex: 2
+      }
+    });
+  };
+
+  AnimatedGame.prototype.drawPacMan = function (angle, pos, mouthOpenPerc) {
+    var ctx = this.ctx;
+    if (!ctx) return;
+    var size = 6;
+    ctx.translate(pos.x, pos.y);
+    ctx.rotate(angle / (180 / Math.PI));
+    var bx = mouthOpenPerc * Math.PI * 2;
+    ctx.fillStyle = 'yellow';
+    ctx.beginPath();
+    ctx.arc(0, 0, size, bx, bx + Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, size, Math.PI * 2 - bx - Math.PI, Math.PI * 2 - bx);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, size, 0.25 * Math.PI * 2, 0.75 * Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.resetTransform();
+  };
+
+  return AnimatedGame;
+}(LReact.Component);
+
+var LevelGameContainer = function LevelGameContainer(_a) {
+  var w = _a.w,
+      h = _a.h,
+      N = _a.N,
+      children = _a.children;
+  return Node('div', {
+    style: {
+      backgroundColor: 'lightblue',
+      padding: '16px'
+    }
+  }, [Node('div', {
+    style: {
+      width: (w + 1) * N * 0.6 + "px",
+      height: h * N + "px",
+      position: 'relative',
+      backgroundColor: 'green'
+    }
+  }, children)]);
+};
+
+function RenderedLevel(_a) {
+  var level = _a.level;
+  var N = 10;
+  var blocks = [];
+
+  for (var y = 0; y < level.h; y++) {
+    for (var x = 0; x < level.w; x++) {
+      if (level.isPath(y, x)) blocks.push(Node(Block, {
+        top: y * N,
+        left: x * N * 0.6,
+        width: N * 1.0,
+        height: N,
+        color: 'black'
+      }));
+    }
+  }
+
+  return Node('div', {}, __spreadArrays(blocks));
+}
+
+var Block = function Block(_a) {
+  var top = _a.top,
+      left = _a.left,
+      width = _a.width,
+      height = _a.height,
+      _b = _a.color,
+      color = _b === void 0 ? 'blue' : _b;
+  return Node('div', {
+    style: {
+      width: width + "px",
+      height: (height !== null && height !== void 0 ? height : width) + "px",
+      position: 'absolute',
+      top: top + "px",
+      left: left + "px",
+      backgroundColor: color
+    }
+  });
+};
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -473,6 +768,8 @@ Object.defineProperty(exports, "__esModule", {
 
 var LReact = __importStar(require("./l_react"));
 
+var index_1 = require("./pacman/index");
+
 console.log('hi i am in game land 🍒', LReact);
 
 var Peanut =
@@ -485,7 +782,7 @@ function (_super) {
   }
 
   Peanut.prototype.render = function () {
-    return LReact.Node('div', {}, [LReact.Text('wow - peanuts')]);
+    return LReact.Node('div', {}, [LReact.Text('wow - peanuts'), LReact.Node(index_1.Game, {}, [])]);
   };
 
   return Peanut;
@@ -497,7 +794,7 @@ function Cool() {
 
 ;
 LReact.Init(LReact.Node(Cool), document.body);
-},{"./l_react":"l_react.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"./l_react":"l_react.ts","./pacman/index":"pacman/index.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
