@@ -86,11 +86,10 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
             this.drawPacMan(game.pacman);
             game.ghosts.forEach(g => this.drawGhost(g));
 
-            this.props.level.forEach((v, x, y) => {
-                if (v === ' ') return;
-                const p = new Pt(x, y).add(1.5, 1.5).scale(10);
-                ctx.fillStyle = 'brown';
-                this.drawEllipse(p.x, p.y, 1, 1);
+            game.candy.forEach((c) => {
+                const p = c.add(1.5, 1.5).scale(10);
+                ctx.fillStyle = 'pink';
+                this.drawEllipse(p.x, p.y, 2, 2);
             });
 
             requestAnimationFrame(loop);

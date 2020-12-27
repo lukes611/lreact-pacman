@@ -40,12 +40,13 @@ export class Pt {
         return new Pt(this.x + x, this.y + y);
     }
 
-    subP({ x, y }: Pt): Pt {
-        return new Pt(this.x - x, this.y - y);
-    }
-
     eq(p: Pt) {
         return this.x === p.x && this.y === p.y;
+    }
+
+    dist(p: Pt) {
+        const diff = this.addP(p.scale(-1));
+        return diff.mag();
     }
     
 

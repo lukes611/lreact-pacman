@@ -476,14 +476,13 @@ function () {
     return new Pt(this.x + x, this.y + y);
   };
 
-  Pt.prototype.subP = function (_a) {
-    var x = _a.x,
-        y = _a.y;
-    return new Pt(this.x - x, this.y - y);
-  };
-
   Pt.prototype.eq = function (p) {
     return this.x === p.x && this.y === p.y;
+  };
+
+  Pt.prototype.dist = function (p) {
+    var diff = this.addP(p.scale(-1));
+    return diff.mag();
   };
 
   Pt.fromAngle = function (angle) {
@@ -822,7 +821,7 @@ function (_super) {
 
   Pacman.prototype.tick = function (dt, playerInput) {
     this.internalTick += dt;
-    this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.005)) * 0.1;
+    this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.01)) * 0.1;
     this.railGuide();
 
     if (playerInput) {
@@ -866,56 +865,31 @@ function (_super) {
 
   Ghost.prototype.canSeePacman = function (pmp) {
     var pos = this.pos;
-
-    var _ = pos.y % 1;
-
-    var _2 = pos.x % 1;
-
-    var canCheckY = _ < 0.1 || _ > 0.9;
-    var canCheckX = _2 < 0.1 || _2 > 0.9;
+    var canCheckY = !inRange(pos.y % 1, 0.1, 0.9);
+    var canCheckX = !inRange(pos.x % 1, 0.1, 0.9);
     var py = Math.round(pos.y);
     var px = Math.round(pos.x);
 
     if (canCheckY && py === Math.round(py) && py === pmp.y) {
-      // check along x axis
-      var mn = Math.min(pmp.x, pos.x);
-      var mx = Math.max(pmp.x, pos.x);
-      var MMM = 100;
-      var count = 0;
-      var foundNonPath = false;
+      var _a = minMax(pmp.x, pos.x),
+          mn = _a[0],
+          mx = _a[1];
 
       for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-        if (!this.level.isPath(i, py) || count > MMM) {
-          foundNonPath = true;
-          break;
-        }
-
-        count++;
-        if (count > MMM) ;
+        if (!this.level.isPath(i, py)) return;
       }
 
-      if (!foundNonPath) return pmp.x === mn ? 'left' : 'right';
-      return undefined;
+      return pmp.x === mn ? 'left' : 'right';
     } else if (canCheckX && px === Math.round(px) && px === pmp.x) {
-      // check along y axis
-      var mn = Math.min(pmp.y, pos.y);
-      var mx = Math.max(pmp.y, pos.y);
-      var MMM = 100;
-      var count = 0;
-      var foundNonPath = false;
+      var _b = minMax(pmp.y, pos.y),
+          mn = _b[0],
+          mx = _b[1];
 
       for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-        if (!this.level.isPath(px, i) || count > MMM) {
-          foundNonPath = true;
-          break;
-        }
-
-        count++;
-        if (count > MMM) ;
+        if (!this.level.isPath(px, i)) return;
       }
 
-      if (!foundNonPath) return pmp.y === mn ? 'up' : 'down';
-      return undefined;
+      return pmp.y === mn ? 'up' : 'down';
     }
 
     return;
@@ -964,9 +938,17 @@ var Game =
 /** @class */
 function () {
   function Game(level) {
+    var _this = this;
+
     this.level = level;
+    this.candy = [];
     this.pacman = Pacman.create(level);
     this.ghosts = [Ghost.create(level, 'red'), Ghost.create(level, 'blue'), Ghost.create(level, 'yellow'), Ghost.create(level, 'purple')];
+    this.level.forEach(function (v, x, y) {
+      if (v !== ' ') {
+        _this.candy.push(new pt_1.Pt(x, y));
+      }
+    });
   }
 
   Game.prototype.tick = function (dt, playerInput) {
@@ -975,6 +957,9 @@ function () {
     this.pacman.tick(dt, playerInput);
     this.ghosts.forEach(function (g) {
       return g.tick(dt, _this.pacman.pos);
+    });
+    this.candy = this.candy.filter(function (c) {
+      return c.dist(_this.pacman.pos) > 1;
     });
   };
 
@@ -994,6 +979,14 @@ function signedClamp(x, min, max) {
 function pickRandom(arr) {
   if (arr.length === 0) return;
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function inRange(x, mn, mx) {
+  return mn <= x && x <= mx;
+}
+
+function minMax(a, b) {
+  return [Math.min(a, b), Math.max(a, b)];
 }
 },{"./pt":"pacman/pt.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
@@ -1188,15 +1181,12 @@ function (_super) {
       game.ghosts.forEach(function (g) {
         return _this.drawGhost(g);
       });
+      game.candy.forEach(function (c) {
+        var p = c.add(1.5, 1.5).scale(10);
+        ctx.fillStyle = 'pink';
 
-      _this.props.level.forEach(function (v, x, y) {
-        if (v === ' ') return;
-        var p = new pt_1.Pt(x, y).add(1.5, 1.5).scale(10);
-        ctx.fillStyle = 'brown';
-
-        _this.drawEllipse(p.x, p.y, 1, 1);
+        _this.drawEllipse(p.x, p.y, 2, 2);
       });
-
       requestAnimationFrame(loop);
     };
 

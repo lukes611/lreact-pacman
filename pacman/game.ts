@@ -288,7 +288,7 @@ export class Pacman extends Agent {
 
     tick(dt: number, playerInput?: Dir) {
         this.internalTick += dt;
-        this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.005)) * 0.1;
+        this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.01)) * 0.1;
         this.railGuide();
         
         if (playerInput) {
@@ -327,46 +327,22 @@ export class Ghost extends Agent {
 
     canSeePacman(pmp: Pt): Dir | undefined {
         const pos = this.pos;
-        const _ = pos.y % 1;
-        const _2 = pos.x % 1;
-        const canCheckY = _ < 0.1 || _ > 0.9;
-        const canCheckX = _2 < 0.1 || _2 > 0.9;
+        const canCheckY = !inRange(pos.y % 1, 0.1, 0.9);
+        const canCheckX = !inRange(pos.x % 1, 0.1, 0.9);
         const py = Math.round(pos.y);
         const px = Math.round(pos.x);
         if (canCheckY && py === Math.round(py) && py === pmp.y) {
-            // check along x axis
-            const mn = Math.min(pmp.x, pos.x);
-            const mx = Math.max(pmp.x, pos.x);
-            const MMM = 100;
-            let count = 0;
-            let foundNonPath = false;
+            const [mn, mx] = minMax(pmp.x, pos.x);
             for (let i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-                if (!this.level.isPath(i, py) || count > MMM) {
-                    foundNonPath = true;
-                    break;
-                }
-                count++;
-                if (count > MMM) 
+                if (!this.level.isPath(i, py)) return;
             }
-            if (!foundNonPath) return pmp.x === mn ? 'left' : 'right';
-            return undefined;
+            return pmp.x === mn ? 'left' : 'right';
         } else if (canCheckX && px === Math.round(px) && px === pmp.x) {
-            // check along y axis
-            const mn = Math.min(pmp.y, pos.y);
-            const mx = Math.max(pmp.y, pos.y);
-            const MMM = 100;
-            let count = 0;
-            let foundNonPath = false;
+            const [mn, mx] = minMax(pmp.y, pos.y);
             for (let i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-                if (!this.level.isPath(px, i) || count > MMM) {
-                    foundNonPath = true;
-                    break;
-                }
-                count++;
-                if (count > MMM) 
+                if (!this.level.isPath(px, i)) return;
             }
-            if (!foundNonPath) return pmp.y === mn ? 'up' : 'down';
-            return undefined;
+            return pmp.y === mn ? 'up' : 'down';
         }
         return;
     }
@@ -408,6 +384,7 @@ export class Ghost extends Agent {
 export class Game {
     pacman: Pacman;
     ghosts: Ghost[];
+    candy: Pt[] = [];
     constructor(public level: Level) {
         this.pacman = Pacman.create(level);
         this.ghosts = [
@@ -416,11 +393,19 @@ export class Game {
             Ghost.create(level, 'yellow'),
             Ghost.create(level, 'purple'),
         ];
+        this.level.forEach((v, x, y) => {
+            if (v !== ' ') {
+                this.candy.push(new Pt(x, y));
+            }
+        });
     }
 
     tick(dt: number, playerInput?: Dir) {
         this.pacman.tick(dt, playerInput);
         this.ghosts.forEach(g => g.tick(dt, this.pacman.pos));
+        this.candy = this.candy.filter(c => {
+            return c.dist(this.pacman.pos) > 1;
+        })
     }
 }
 
@@ -435,4 +420,15 @@ function signedClamp(x: number, min: number, max: number): number {
 function pickRandom<T>(arr: T[]): T | undefined {
     if (arr.length === 0) return;
     return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function inRange(x: number, mn: number, mx: number) {
+    return mn <= x && x <= mx;
+}
+
+function minMax(a: number, b: number): [number, number] {
+    return [
+        Math.min(a, b),
+        Math.max(a, b),
+    ];
 }
