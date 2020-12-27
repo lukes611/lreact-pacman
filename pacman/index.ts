@@ -60,14 +60,48 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
     canvasSet = (canvas: HTMLCanvasElement) => {
         const ctx = canvas.getContext('2d');
         this.ctx = ctx;
+        this.gameLoop();
 
         // ctx.fillStyle = 'yellow';
         // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
         // ctx.fill();
         // ctx.closePath();
-        console.log(this.pacman.pos)
-        this.drawPacMan(this.pacman.dir.getAngle(), this.pacman.pos.scale(10).addY(4), 0.05);
-        this.ghosts.forEach(g => this.drawGhost(g));
+        // console.log(this.pacman.pos)
+        
+    }
+
+    gameLoop() {
+        const test = new Pt(20, 16);
+        let _test = '';
+        this.props.level.forEach((v, x, y) => {
+            if (x === 0 && y !== 0) _test += '\n';
+            _test += v;
+        });
+        console.log(_test);
+        console.log('YAAAA', this.props.level.getV(test.x, test.y + 3));
+        let prevDelta = 0;
+        const loop = (delta: number) => {
+            const { ctx } = this;
+            if (!ctx) return;
+            const dt = delta - prevDelta;
+            prevDelta = delta;
+            this.ghosts.forEach(g => g.tick(dt))
+            
+            ctx.clearRect(0, 0, 400, 400);
+            
+            this.drawPacMan(this.pacman.dir.getAngle(), this.pacman.pos.scale(10).addY(4), 0.05);
+            this.ghosts.forEach(g => this.drawGhost(g));
+
+            this.props.level.forEach((v, x, y) => {
+                if (v === ' ') return;
+                const p = new Pt(x, y).add(1.5, 1.5).scale(10);
+                ctx.fillStyle = 'brown';
+                this.drawEllipse(p.x, p.y, 1, 1);
+            });
+
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
     }
 
     drawPacMan(angle: number, pos: Pt, mouthOpenPerc: number) {
@@ -194,7 +228,7 @@ function RenderedLevel({
     let blocks = [];
     for (let y = 0; y < level.h; y++) {
         for (let x = 0; x < level.w; x++) {
-            if (level.isPath(y, x)) {
+            if (level.isPath(x, y)) {
                 const center = new Pt(x + 0.5, y + 0.5);
                 const topLeft = center.add(-thick * 0.5, -thick * 0.5);
                 blocks.push(Node(Block, {

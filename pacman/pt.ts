@@ -4,6 +4,26 @@ export class Pt {
     constructor(public x: number = 0, public y: number = 0) {
     }
 
+    copy() {
+        return new Pt(this.x, this.y);
+    }
+
+    toString() {
+        return `<${this.x}, ${this.y}>`
+    }
+
+    floor() {
+        return new Pt(Math.floor(this.x), Math.floor(this.y));
+    }
+
+    ceil() {
+        return new Pt(Math.ceil(this.x), Math.ceil(this.y));
+    }
+
+    round() {
+        return new Pt(Math.round(this.x), Math.round(this.y));
+    }
+
     scale(v: number): Pt {
         return new Pt(this.x * v, this.y * v);
     }
@@ -15,6 +35,19 @@ export class Pt {
     add(x: number, y: number): Pt {
         return new Pt(this.x + x, this.y + y);
     }
+
+    addP({ x, y }: Pt): Pt {
+        return new Pt(this.x + x, this.y + y);
+    }
+
+    subP({ x, y }: Pt): Pt {
+        return new Pt(this.x - x, this.y - y);
+    }
+
+    eq(p: Pt) {
+        return this.x === p.x && this.y === p.y;
+    }
+    
 
     static fromAngle(angle: number) {
         const rv = new Pt(0, 0);

@@ -438,6 +438,26 @@ function () {
     this.y = y;
   }
 
+  Pt.prototype.copy = function () {
+    return new Pt(this.x, this.y);
+  };
+
+  Pt.prototype.toString = function () {
+    return "<" + this.x + ", " + this.y + ">";
+  };
+
+  Pt.prototype.floor = function () {
+    return new Pt(Math.floor(this.x), Math.floor(this.y));
+  };
+
+  Pt.prototype.ceil = function () {
+    return new Pt(Math.ceil(this.x), Math.ceil(this.y));
+  };
+
+  Pt.prototype.round = function () {
+    return new Pt(Math.round(this.x), Math.round(this.y));
+  };
+
   Pt.prototype.scale = function (v) {
     return new Pt(this.x * v, this.y * v);
   };
@@ -448,6 +468,22 @@ function () {
 
   Pt.prototype.add = function (x, y) {
     return new Pt(this.x + x, this.y + y);
+  };
+
+  Pt.prototype.addP = function (_a) {
+    var x = _a.x,
+        y = _a.y;
+    return new Pt(this.x + x, this.y + y);
+  };
+
+  Pt.prototype.subP = function (_a) {
+    var x = _a.x,
+        y = _a.y;
+    return new Pt(this.x - x, this.y - y);
+  };
+
+  Pt.prototype.eq = function (p) {
+    return this.x === p.x && this.y === p.y;
   };
 
   Pt.fromAngle = function (angle) {
@@ -522,6 +558,66 @@ exports.level1 = halfLevel1.split('\n').map(function (line) {
   return line + secondHalf;
 }).join('\n');
 
+function ptToVel(p) {
+  var amount = p.mag();
+
+  if (p.x) {
+    if (p.x < 0) return {
+      dir: 'left',
+      amount: amount
+    };
+    return {
+      dir: 'right',
+      amount: amount
+    };
+  } else {
+    if (p.y < 0) return {
+      dir: 'up',
+      amount: amount
+    };
+    return {
+      dir: 'down',
+      amount: amount
+    };
+  }
+}
+
+function dirToPt(v) {
+  switch (v) {
+    case 'up':
+      return new pt_1.Pt(0, -1);
+
+    case 'down':
+      return new pt_1.Pt(0, 1);
+
+    case 'left':
+      return new pt_1.Pt(-1, 0);
+
+    case 'right':
+      return new pt_1.Pt(1, 0);
+  }
+}
+
+function oppositeDir(v) {
+  switch (v) {
+    case 'up':
+      return 'down';
+
+    case 'down':
+      return 'up';
+
+    case 'left':
+      return 'right';
+
+    case 'right':
+      return 'left';
+  }
+}
+
+function velToPt(v) {
+  return dirToPt(v.dir).scale(v.amount);
+}
+
 var Level =
 /** @class */
 function () {
@@ -537,13 +633,18 @@ function () {
     return new Level(exports.level1);
   };
 
-  Level.prototype.isPath = function (r, c) {
-    var v = this.getV(r, c);
+  Level.prototype.isPath = function (x, y) {
+    var v = this.getV(x, y);
     return v && v !== ' ';
   };
 
-  Level.prototype.getV = function (r, c) {
-    var v = this.level[r][c];
+  Level.prototype.isPathP = function (p) {
+    return this.isPath(p.x, p.y);
+  };
+
+  Level.prototype.getV = function (x, y) {
+    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return undefined;
+    var v = this.level[y][x];
     return v;
   };
 
@@ -566,9 +667,156 @@ function () {
   Level.prototype.forEach = function (f) {
     for (var y = 0; y < this.h; y++) {
       for (var x = 0; x < this.w; x++) {
-        f(this.getV(y, x), x, y);
+        f(this.getV(x, y), x, y);
       }
     }
+  };
+
+  Level.prototype.getClosestRailPoint = function (p) {
+    return p.round();
+  };
+
+  Level.prototype.nearARailPoint = function (p) {
+    var xD = Math.abs(p.x - Math.round(p.x));
+    var yD = Math.abs(p.y - Math.round(p.y));
+    var maxD = 0.08;
+    if (xD > maxD || yD > maxD) return false;
+    return true;
+  };
+
+  Level.prototype.isLegalPosition = function (p) {
+    return p.x % 1 === 0 || p.y % 1 === 0;
+  };
+
+  Level.prototype.isRailPoint = function (p) {
+    return p.x % 1 === 0 && p.y % 1 === 0;
+  };
+
+  Level.prototype.isSafePosition = function (p) {
+    return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+  };
+
+  Level.prototype.surroundingPaths = function (pIn) {
+    var p = this.getClosestRailPoint(pIn);
+    var count = 0;
+    this.forSurroundingPoints(p, function (_, __, v) {
+      count += v && v !== ' ' ? 1 : 0;
+    });
+    return count;
+  };
+
+  Level.prototype.onALinearPath = function (pIn) {
+    var p = this.getClosestRailPoint(pIn);
+    var st = new Map();
+    this.forSurroundingPoints(p, function (d, x, v) {
+      if (v && v !== ' ') st.set(d, true);
+    });
+    return st.get('up') && st.get('down') && !st.get('left') && !st.get('right') || !st.get('up') && !st.get('down') && st.get('left') && st.get('right');
+  };
+
+  Level.prototype.deadEnd = function (p) {
+    return this.surroundingPaths(p) === 1;
+  };
+
+  Level.prototype.forSurroundingPoints = function (p, f) {
+    var _this = this;
+
+    var dirArr = ['up', 'down', 'left', 'right'];
+    dirArr.forEach(function (dir) {
+      var x = p.addP(dirToPt(dir));
+      f(dir, x, _this.getV(x.x, x.y));
+    });
+  };
+
+  Level.prototype.getDirectionOptions = function (p) {
+    var _this = this;
+
+    var rp = this.getClosestRailPoint(p);
+    var possibles = ['up', 'down', 'left', 'right'];
+    return possibles.filter(function (d) {
+      var v = dirToPt(d);
+      var x = rp.addP(v);
+      if (_this.isPathP(x)) return true;
+      return false;
+    });
+  };
+
+  Level.prototype.getStraddlePositions = function (p, dir) {
+    if (this.isRailPoint(p)) return {
+      isRail: true
+    };
+
+    switch (dir) {
+      case 'up':
+        return {
+          isRail: false,
+          from: p.ceil(),
+          to: p.floor()
+        };
+
+      case 'down':
+        return {
+          isRail: false,
+          from: p.floor(),
+          to: p.ceil()
+        };
+
+      case 'left':
+        return {
+          isRail: false,
+          from: p.ceil(),
+          to: p.floor()
+        };
+
+      case 'right':
+        return {
+          isRail: false,
+          from: p.floor(),
+          to: p.ceil()
+        };
+    }
+  };
+
+  Level.prototype.getRailMoveVec = function (p, moveVec) {
+    // if moving is safe -> return vec
+    if (this.isSafePosition(p.addP(moveVec))) return moveVec;
+    var vel = ptToVel(moveVec);
+    var straddlePos = this.getStraddlePositions(p, vel.dir);
+
+    if (straddlePos.isRail) {
+      var safeMove = dirToPt(vel.dir);
+      if (this.isSafePosition(p.addP(safeMove))) return safeMove;
+      return undefined;
+    } else {
+      // else -> fix vec so movemag is equal to dist to next straddle of p
+      var newSafePos = straddlePos.to;
+
+      if (this.isSafePosition(newSafePos)) {
+        return newSafePos.subP(p);
+      }
+
+      return undefined;
+    }
+  };
+
+  Level.prototype.getSafeMove = function (p, moveVec) {
+    var to = p.addP(moveVec);
+    if (this.isSafePosition(to)) return {
+      safe: true,
+      newPos: to
+    };
+    var modifiedMove = this.getRailMoveVec(p, moveVec);
+
+    if (modifiedMove) {
+      return {
+        safe: true,
+        newPos: p.addP(modifiedMove)
+      };
+    }
+
+    return {
+      safe: false
+    };
   };
 
   return Level;
@@ -584,6 +832,14 @@ function () {
     this.dir = dir;
     this.level = level;
   }
+
+  Agent.prototype.getClosestRailPoint = function () {
+    return this.level.getClosestRailPoint(this.pos);
+  };
+
+  Agent.prototype.nearARailPoint = function () {
+    return this.level.nearARailPoint(this.pos);
+  };
 
   return Agent;
 }();
@@ -625,7 +881,41 @@ function (_super) {
   }
 
   Ghost.create = function (lvl, color) {
-    return new Ghost(lvl.getRandomLocationOfChar('g'), new pt_1.Pt(1, 0), lvl, color, false);
+    return new Ghost( // lvl.getRandomLocationOfChar('g'),
+    new pt_1.Pt(22, 19), new pt_1.Pt(1, 0), lvl, color, false);
+  };
+
+  Ghost.prototype.lastMovedFromHere = function () {
+    if (!this.lastGate) return false;
+    var closestRailPoint = this.level.getClosestRailPoint(this.pos);
+    return closestRailPoint.eq(this.lastGate);
+  };
+
+  Ghost.prototype.tick = function (dt) {
+    if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
+
+    if (this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
+      // const shouldChange = Math.random() < 0.6;
+      if (true) {
+        this.pos = this.level.getClosestRailPoint(this.pos);
+        var options = this.level.getDirectionOptions(this.pos);
+
+        if (options.length) {
+          var randomDir = options[Math.floor(Math.random() * options.length)];
+          this.dir = dirToPt(randomDir);
+          this.lastGate = this.level.getClosestRailPoint(this.pos).round();
+        }
+      }
+    }
+
+    var vel = this.dir.scale(dt * 0.005);
+    var outcome = this.level.getSafeMove(this.pos, vel);
+
+    if (outcome.safe) {
+      this.pos = outcome.newPos;
+    } else {
+      this.pos = this.pos.round();
+    }
   };
 
   return Ghost;
@@ -773,18 +1063,14 @@ function (_super) {
 
     _this.canvasSet = function (canvas) {
       var ctx = canvas.getContext('2d');
-      _this.ctx = ctx; // ctx.fillStyle = 'yellow';
+      _this.ctx = ctx;
+
+      _this.gameLoop(); // ctx.fillStyle = 'yellow';
       // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
       // ctx.fill();
       // ctx.closePath();
+      // console.log(this.pacman.pos)
 
-      console.log(_this.pacman.pos);
-
-      _this.drawPacMan(_this.pacman.dir.getAngle(), _this.pacman.pos.scale(10).addY(4), 0.05);
-
-      _this.ghosts.forEach(function (g) {
-        return _this.drawGhost(g);
-      });
     };
 
     _this.pacman = game_1.Pacman.create(props.level);
@@ -806,6 +1092,51 @@ function (_super) {
         zIndex: 2
       }
     });
+  };
+
+  AnimatedGame.prototype.gameLoop = function () {
+    var _this = this;
+
+    var test = new pt_1.Pt(20, 16);
+    var _test = '';
+    this.props.level.forEach(function (v, x, y) {
+      if (x === 0 && y !== 0) _test += '\n';
+      _test += v;
+    });
+    console.log(_test);
+    console.log('YAAAA', this.props.level.getV(test.x, test.y + 3));
+    var prevDelta = 0;
+
+    var loop = function loop(delta) {
+      var ctx = _this.ctx;
+      if (!ctx) return;
+      var dt = delta - prevDelta;
+      prevDelta = delta;
+
+      _this.ghosts.forEach(function (g) {
+        return g.tick(dt);
+      });
+
+      ctx.clearRect(0, 0, 400, 400);
+
+      _this.drawPacMan(_this.pacman.dir.getAngle(), _this.pacman.pos.scale(10).addY(4), 0.05);
+
+      _this.ghosts.forEach(function (g) {
+        return _this.drawGhost(g);
+      });
+
+      _this.props.level.forEach(function (v, x, y) {
+        if (v === ' ') return;
+        var p = new pt_1.Pt(x, y).add(1.5, 1.5).scale(10);
+        ctx.fillStyle = 'brown';
+
+        _this.drawEllipse(p.x, p.y, 1, 1);
+      });
+
+      requestAnimationFrame(loop);
+    };
+
+    requestAnimationFrame(loop);
   };
 
   AnimatedGame.prototype.drawPacMan = function (angle, pos, mouthOpenPerc) {
@@ -921,7 +1252,7 @@ function RenderedLevel(_a) {
 
   for (var y = 0; y < level.h; y++) {
     for (var x = 0; x < level.w; x++) {
-      if (level.isPath(y, x)) {
+      if (level.isPath(x, y)) {
         var center = new pt_1.Pt(x + 0.5, y + 0.5);
         var topLeft = center.add(-thick * 0.5, -thick * 0.5);
         blocks.push(Node(Block, {
@@ -1079,7 +1410,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54135" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51709" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
