@@ -1,7 +1,9 @@
 import * as LReact from '../l_react';
-import { level1, Level, Game, Pacman, Ghost, Dir } from './game';
+import { Level, Game, Pacman, Ghost, Dir } from './game';
 import { Pt } from './pt';
+import { drawPacMan, drawGhost, drawEllipse } from './render';
 const { Node, Text } = LReact;
+
 
 export class GameComponent extends LReact.Component<{}, {}> {
     level: Level;
@@ -82,109 +84,19 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
             prevDelta = delta;
             game.tick(dt, this.getPlayerInputDir());
             ctx.clearRect(0, 0, this.canvasPixels.x * 10, this.canvasPixels.y * 10);
-            
-            this.drawPacMan(game.pacman);
-            game.ghosts.forEach(g => this.drawGhost(g));
 
             game.candy.forEach((c) => {
                 const p = c.add(1.5, 1.5).scale(10);
                 ctx.fillStyle = 'pink';
-                this.drawEllipse(p.x, p.y, 2, 2);
+                drawEllipse(ctx, p.x, p.y, 2, 2);
             });
+            
+            drawPacMan(ctx, game.pacman);
+            game.ghosts.forEach(g => drawGhost(ctx, g));
 
             requestAnimationFrame(loop);
         }
         requestAnimationFrame(loop);
-    }
-
-    drawPacMan(pacman: Pacman) {
-        const { ctx } = this;
-        if (!ctx) return;
-        const size = 8;
-        const pos = pacman.pos.add(1.5, 1.4).scale(10);
-        const { mouthOpenPerc } = pacman;
-        const angle = pacman.dirV.getAngle();
-        ctx.translate(pos.x, pos.y);
-        ctx.rotate(angle / (180 / Math.PI));
-        const bx = mouthOpenPerc * Math.PI * 2;
-        ctx.fillStyle = 'yellow';
-        ctx.beginPath();
-        ctx.arc(0, 0, size, bx, bx + Math.PI);
-        ctx.closePath();
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(0, 0, size, Math.PI * 2 - bx - Math.PI, Math.PI * 2 - bx);
-        ctx.closePath();
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(0, 0, size, 0.25 * Math.PI * 2, 0.75 * Math.PI * 2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.resetTransform();
-    }
-
-    drawGhost(ghost: Ghost) {
-        const { ctx } = this;
-        if (!ctx) return;
-        const size = 16;
-        const pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
-        ctx.translate(pos.x, pos.y);
-        ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
-        this.drawArc(0, 0, size * 0.5, 180, 360);
-        
-        ctx.beginPath();
-        ctx.rect(-size * 0.5, 0, size, size * 0.5);
-        ctx.closePath();
-        ctx.fill();
-        
-        for (let i = 0; i < 3; i++) {
-            this.drawArc(-size * 0.5 + size / 6 + (size / 3) * i, size * 0.4, size / 6, 0, 180);
-        }
-
-        
-        // eyes
-        const eyeSize = size * 0.15;
-        const eyeSizeS = eyeSize * 0.5;
-        ctx.fillStyle = 'white';
-        this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
-        ctx.fillStyle = 'white';
-        this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
-        // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
-        
-        ctx.resetTransform();
-    }
-
-    drawArc(x: number, y: number, radius: number, startAngle: number, endAngle: number) {
-        const { ctx } = this;
-        if (!ctx) return;
-
-        const scalar = Math.PI * 2 * (1 / 360);
-        
-        ctx.beginPath();
-        ctx.arc(x, y, radius, scalar * startAngle , scalar * endAngle);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-    drawEye(x: number, y: number, size: number, dir: Pt) {
-        const { ctx } = this;
-        if (!ctx) return;
-
-        ctx.fillStyle = 'white';
-        this.drawEllipse(x, y, size, size);
-        ctx.fillStyle = 'black';
-        const pupilSize = size * 0.5;
-        this.drawEllipse(x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
-    }
-
-    drawEllipse(x: number, y: number, xRad: number, yRad: number) {
-        const { ctx } = this;
-        if (!ctx) return;
-
-        ctx.beginPath();
-        ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
-        ctx.closePath();
-        ctx.fill();
     }
 }
 
@@ -198,7 +110,6 @@ const LevelGameContainer = ({ w, h, N, children }: {
         style: {
             backgroundColor: 'lightblue',
             padding: '16px',
-            // maxWidth: `${w * N * 0.55 + 32}px`,
         },
     }, [
         Node('div', {

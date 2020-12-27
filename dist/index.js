@@ -988,7 +988,95 @@ function inRange(x, mn, mx) {
 function minMax(a, b) {
   return [Math.min(a, b), Math.max(a, b)];
 }
-},{"./pt":"pacman/pt.ts"}],"pacman/index.ts":[function(require,module,exports) {
+},{"./pt":"pacman/pt.ts"}],"pacman/render.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.drawArc = exports.drawEllipse = exports.drawEye = exports.drawGhost = exports.drawPacMan = void 0;
+
+var drawPacMan = function drawPacMan(ctx, pacman) {
+  var size = 8;
+  var pos = pacman.pos.add(1.5, 1.4).scale(10);
+  var mouthOpenPerc = pacman.mouthOpenPerc;
+  var angle = pacman.dirV.getAngle();
+  ctx.translate(pos.x, pos.y);
+  ctx.rotate(angle / (180 / Math.PI));
+  var bx = mouthOpenPerc * Math.PI * 2;
+  ctx.fillStyle = 'yellow';
+  ctx.beginPath();
+  ctx.arc(0, 0, size, bx, bx + Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, size, Math.PI * 2 - bx - Math.PI, Math.PI * 2 - bx);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0.25 * Math.PI * 2, 0.75 * Math.PI * 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.resetTransform();
+};
+
+exports.drawPacMan = drawPacMan;
+
+var drawGhost = function drawGhost(ctx, ghost) {
+  var size = 16;
+  var pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
+  ctx.translate(pos.x, pos.y);
+  ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
+  exports.drawArc(ctx, 0, 0, size * 0.5, 180, 360);
+  ctx.beginPath();
+  ctx.rect(-size * 0.5, 0, size, size * 0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  for (var i = 0; i < 3; i++) {
+    exports.drawArc(ctx, -size * 0.5 + size / 6 + size / 3 * i, size * 0.4, size / 6, 0, 180);
+  } // eyes
+
+
+  var eyeSize = size * 0.15;
+  ctx.fillStyle = 'white';
+  exports.drawEye(ctx, -0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
+  ctx.fillStyle = 'white';
+  exports.drawEye(ctx, 0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
+  ctx.resetTransform();
+};
+
+exports.drawGhost = drawGhost;
+
+var drawEye = function drawEye(ctx, x, y, size, dir) {
+  ctx.fillStyle = 'white';
+  exports.drawEllipse(ctx, x, y, size, size);
+  ctx.fillStyle = 'black';
+  var pupilSize = size * 0.5;
+  exports.drawEllipse(ctx, x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
+};
+
+exports.drawEye = drawEye;
+
+var drawEllipse = function drawEllipse(ctx, x, y, xRad, yRad) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
+  ctx.closePath();
+  ctx.fill();
+};
+
+exports.drawEllipse = drawEllipse;
+
+var drawArc = function drawArc(ctx, x, y, radius, startAngle, endAngle) {
+  var scalar = Math.PI * 2 * (1 / 360);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, scalar * startAngle, scalar * endAngle);
+  ctx.closePath();
+  ctx.fill();
+};
+
+exports.drawArc = drawArc;
+},{}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -1075,6 +1163,8 @@ var LReact = __importStar(require("../l_react"));
 var game_1 = require("./game");
 
 var pt_1 = require("./pt");
+
+var render_1 = require("./render");
 
 var Node = LReact.Node,
     Text = LReact.Text;
@@ -1175,105 +1265,19 @@ function (_super) {
       prevDelta = delta;
       game.tick(dt, _this.getPlayerInputDir());
       ctx.clearRect(0, 0, _this.canvasPixels.x * 10, _this.canvasPixels.y * 10);
-
-      _this.drawPacMan(game.pacman);
-
-      game.ghosts.forEach(function (g) {
-        return _this.drawGhost(g);
-      });
       game.candy.forEach(function (c) {
         var p = c.add(1.5, 1.5).scale(10);
         ctx.fillStyle = 'pink';
-
-        _this.drawEllipse(p.x, p.y, 2, 2);
+        render_1.drawEllipse(ctx, p.x, p.y, 2, 2);
+      });
+      render_1.drawPacMan(ctx, game.pacman);
+      game.ghosts.forEach(function (g) {
+        return render_1.drawGhost(ctx, g);
       });
       requestAnimationFrame(loop);
     };
 
     requestAnimationFrame(loop);
-  };
-
-  AnimatedGame.prototype.drawPacMan = function (pacman) {
-    var ctx = this.ctx;
-    if (!ctx) return;
-    var size = 8;
-    var pos = pacman.pos.add(1.5, 1.4).scale(10);
-    var mouthOpenPerc = pacman.mouthOpenPerc;
-    var angle = pacman.dirV.getAngle();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(angle / (180 / Math.PI));
-    var bx = mouthOpenPerc * Math.PI * 2;
-    ctx.fillStyle = 'yellow';
-    ctx.beginPath();
-    ctx.arc(0, 0, size, bx, bx + Math.PI);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 0, size, Math.PI * 2 - bx - Math.PI, Math.PI * 2 - bx);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 0, size, 0.25 * Math.PI * 2, 0.75 * Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.resetTransform();
-  };
-
-  AnimatedGame.prototype.drawGhost = function (ghost) {
-    var ctx = this.ctx;
-    if (!ctx) return;
-    var size = 16;
-    var pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
-    ctx.translate(pos.x, pos.y);
-    ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
-    this.drawArc(0, 0, size * 0.5, 180, 360);
-    ctx.beginPath();
-    ctx.rect(-size * 0.5, 0, size, size * 0.5);
-    ctx.closePath();
-    ctx.fill();
-
-    for (var i = 0; i < 3; i++) {
-      this.drawArc(-size * 0.5 + size / 6 + size / 3 * i, size * 0.4, size / 6, 0, 180);
-    } // eyes
-
-
-    var eyeSize = size * 0.15;
-    var eyeSizeS = eyeSize * 0.5;
-    ctx.fillStyle = 'white';
-    this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
-    ctx.fillStyle = 'white';
-    this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dirV); // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
-
-    ctx.resetTransform();
-  };
-
-  AnimatedGame.prototype.drawArc = function (x, y, radius, startAngle, endAngle) {
-    var ctx = this.ctx;
-    if (!ctx) return;
-    var scalar = Math.PI * 2 * (1 / 360);
-    ctx.beginPath();
-    ctx.arc(x, y, radius, scalar * startAngle, scalar * endAngle);
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  AnimatedGame.prototype.drawEye = function (x, y, size, dir) {
-    var ctx = this.ctx;
-    if (!ctx) return;
-    ctx.fillStyle = 'white';
-    this.drawEllipse(x, y, size, size);
-    ctx.fillStyle = 'black';
-    var pupilSize = size * 0.5;
-    this.drawEllipse(x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
-  };
-
-  AnimatedGame.prototype.drawEllipse = function (x, y, xRad, yRad) {
-    var ctx = this.ctx;
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
-    ctx.closePath();
-    ctx.fill();
   };
 
   return AnimatedGame;
@@ -1344,7 +1348,7 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts"}],"index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
