@@ -1178,20 +1178,43 @@ function (_super) {
     var _this = _super.call(this, props) || this;
 
     _this.level = game_1.Level.createLevel1();
+    _this.game = new game_1.Game(_this.level);
+    _this.state = {
+      state: 'not-started',
+      windowSize: {
+        w: window.innerWidth,
+        h: window.innerHeight
+      }
+    };
     return _this;
   }
 
   GameComponent.prototype.render = function () {
+    var _this = this;
+
     var N = 10;
-    return Node('div', {}, [Text('pacman'), Node(LevelGameContainer, {
+    return Node('div', {}, [Text(this.state.state), Node(LevelGameContainer, {
       N: 10,
       w: this.level.w,
       h: this.level.h
     }, [Node(RenderedLevel, {
       level: this.level
-    }), Node(AnimatedGame, {
-      level: this.level
-    }, [])])]);
+    }), this.state.state === 'not-started' ? Node(AnimatedGame, {
+      game: this.game,
+      paused: this.state.state === 'paused'
+    }, []) : Text('no game')]), Node('button', {
+      onClick: function onClick() {
+        if (_this.state.state === 'not-started') {
+          _this.setState({
+            state: 'paused'
+          });
+        } else {
+          _this.setState({
+            state: 'not-started'
+          });
+        }
+      }
+    }, [Text('stop')])]);
   };
 
   return GameComponent;
@@ -1209,27 +1232,37 @@ function (_super) {
 
     _this.keys = new Map();
 
+    _this.componentDidMount = function () {
+      console.log('ANIMATED GAME MOUNT');
+    };
+
+    _this.componentDidUnmount = function () {
+      var _a;
+
+      (_a = _this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(_this);
+
+      if (_this.animId) {
+        cancelAnimationFrame(_this.animId.id);
+      }
+
+      console.log('cleaned it up');
+    };
+
     _this.canvasSet = function (canvas) {
       var ctx = canvas.getContext('2d');
       _this.ctx = ctx;
 
       _this.gameLoop();
 
-      document.body.addEventListener('keydown', function (e) {
-        _this.keys.set(e.key, true);
-      });
-      document.body.addEventListener('keyup', function (e) {
-        _this.keys.set(e.key, false);
-      });
+      _this.setupEventListeners();
     };
 
-    _this.game = new game_1.Game(props.level);
-    _this.canvasPixels = new pt_1.Pt(props.level.w + 1, props.level.h);
+    _this.canvasPixels = new pt_1.Pt(props.game.level.w + 1, props.game.level.h);
     return _this;
   }
 
   AnimatedGame.prototype.render = function () {
-    var level = this.props.level;
+    var level = this.props.game.level;
     return Node('canvas', {
       ref: this.canvasSet,
       width: this.canvasPixels.x * 10,
@@ -1237,11 +1270,35 @@ function (_super) {
       style: {
         width: (level.w + 1) * 10 + "px",
         height: level.h * 10 + "px",
-        border: '1px dashed white',
         position: 'absolute',
         zIndex: 2
       }
     });
+  };
+
+  AnimatedGame.prototype.setupEventListeners = function () {
+    var _this = this;
+
+    var _a;
+
+    (_a = this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(this);
+
+    var keyDownListener = function keyDownListener(e) {
+      if (!_this.props.paused) _this.keys.set(e.key, true);
+    };
+
+    document.body.addEventListener('keydown', keyDownListener);
+
+    var keyUpListener = function keyUpListener(e) {
+      if (!_this.props.paused) _this.keys.set(e.key, false);
+    };
+
+    document.body.addEventListener('keyup', keyUpListener);
+
+    this.killEventListeners = function () {
+      document.body.removeEventListener('keydown', keyDownListener);
+      document.body.removeEventListener('keyup', keyUpListener);
+    };
   };
 
   AnimatedGame.prototype.getPlayerInputDir = function () {
@@ -1257,9 +1314,8 @@ function (_super) {
     var prevDelta = 0;
 
     var loop = function loop(delta) {
-      var _a = _this,
-          ctx = _a.ctx,
-          game = _a.game;
+      var ctx = _this.ctx;
+      var game = _this.props.game;
       if (!ctx) return;
       var dt = delta - prevDelta;
       prevDelta = delta;
@@ -1274,10 +1330,14 @@ function (_super) {
       game.ghosts.forEach(function (g) {
         return render_1.drawGhost(ctx, g);
       });
-      requestAnimationFrame(loop);
+      _this.animId = {
+        id: requestAnimationFrame(loop)
+      };
     };
 
-    requestAnimationFrame(loop);
+    this.animId = {
+      id: requestAnimationFrame(loop)
+    };
   };
 
   return AnimatedGame;
@@ -1291,14 +1351,15 @@ var LevelGameContainer = function LevelGameContainer(_a) {
   return Node('div', {
     style: {
       backgroundColor: 'lightblue',
-      padding: '16px'
+      padding: '16px',
+      display: 'grid',
+      placeItems: 'center'
     }
   }, [Node('div', {
     style: {
       width: (w + 2) * N + "px",
       height: (h + 2) * N + "px",
-      position: 'relative',
-      backgroundColor: 'green'
+      position: 'relative'
     }
   }, children)]);
 };

@@ -1,46 +1,86 @@
 import * as LReact from '../l_react';
-import { Level, Game, Pacman, Ghost, Dir } from './game';
+import { Level, Game, Dir } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
 const { Node, Text } = LReact;
 
+type GameState =
+    | 'not-started'
+    | 'game-over'
+    | 'you-won'
+    | 'paused';
 
-export class GameComponent extends LReact.Component<{}, {}> {
+type GameComponentState = {
+    state: GameState,
+    windowSize: { w: number, h: number };
+};
+export class GameComponent extends LReact.Component<{}, GameComponentState> {
     level: Level;
-
+    game: Game;
     constructor(props: {}) {
         super(props);
         this.level = Level.createLevel1();
+        this.game = new Game(this.level);
+        this.state = {
+            state: 'not-started',
+            windowSize: {
+                w: window.innerWidth,
+                h: window.innerHeight,
+            },
+        };
     }
     render() {
         const N = 10;
         return Node('div', {}, [
-            Text('pacman'),
+            Text(this.state.state),
             Node(LevelGameContainer, {
                 N: 10,
                 w: this.level.w,
                 h: this.level.h,
             }, [
                 Node(RenderedLevel, { level: this.level }),
-                Node(AnimatedGame, { level: this.level }, []),
-            ])
+                this.state.state === 'not-started'
+                    ? Node(AnimatedGame, { game: this.game, paused: this.state.state === 'paused' }, [])
+                    : Text('no game'),
+            ]),
+            Node('button', {
+                onClick: () => {
+                    if (this.state.state === 'not-started') {
+                        this.setState({ state: 'paused' });
+                    } else {
+                        this.setState({ state: 'not-started' });
+                    }
+                },
+            }, [Text('stop')]),
         ]);
     }
 }
 
-class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
+class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}> {
     ctx?: CanvasRenderingContext2D;
-    game: Game;
     canvasPixels: Pt;
     keys = new Map<string, boolean>();
-    constructor(props: { level: Level }) {
+    animId?: { id: number };
+    killEventListeners?: () => void;
+    constructor(props: { game: Game, paused: boolean }) {
         super(props);
-        this.game = new Game(props.level);
-        this.canvasPixels = new Pt(props.level.w + 1, props.level.h);
+        this.canvasPixels = new Pt(props.game.level.w + 1, props.game.level.h);
     }
 
+    componentDidMount = () => {
+        console.log('ANIMATED GAME MOUNT');
+    };
+
+    componentDidUnmount = () => {
+        this.killEventListeners?.();
+        if (this.animId) {
+            cancelAnimationFrame(this.animId.id);
+        }
+        console.log('cleaned it up')
+    };
+
     render() {
-        const { level } = this.props;
+        const { game: { level } } = this.props;
         return Node('canvas', {
             ref: this.canvasSet,
             width: this.canvasPixels.x * 10,
@@ -48,7 +88,6 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
             style: {
                 width: `${(level.w+1) * 10}px`,
                 height: `${level.h * 10}px`,
-                border: '1px dashed white',
                 position: 'absolute',
                 zIndex: 2,
             },
@@ -59,14 +98,26 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         const ctx = canvas.getContext('2d');
         this.ctx = ctx;
         this.gameLoop();
-        document.body.addEventListener('keydown', (e: KeyboardEvent) => {
-            this.keys.set(e.key, true);
-        });
-        document.body.addEventListener('keyup', (e: KeyboardEvent) => {
-            this.keys.set(e.key, false);
-        })
-        
+        this.setupEventListeners();
     }
+
+    setupEventListeners() {
+        this.killEventListeners?.();
+        const keyDownListener = (e: KeyboardEvent) => {
+            if (!this.props.paused) this.keys.set(e.key, true);
+        };
+        document.body.addEventListener('keydown', keyDownListener);
+        const keyUpListener = (e: KeyboardEvent) => {
+            if (!this.props.paused) this.keys.set(e.key, false);
+        };
+        document.body.addEventListener('keyup', keyUpListener);
+        this.killEventListeners = () => {
+            document.body.removeEventListener('keydown', keyDownListener);
+            document.body.removeEventListener('keyup', keyUpListener);
+        };
+    }
+
+
 
     getPlayerInputDir(): Dir | undefined {
         if (this.keys.get('ArrowUp')) return 'up';
@@ -78,7 +129,8 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
     gameLoop() {
         let prevDelta = 0;
         const loop = (delta: number) => {
-            const { ctx, game } = this;
+            const { ctx } = this;
+            const { game } = this.props;
             if (!ctx) return;
             const dt = delta - prevDelta;
             prevDelta = delta;
@@ -94,9 +146,9 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
             drawPacMan(ctx, game.pacman);
             game.ghosts.forEach(g => drawGhost(ctx, g));
 
-            requestAnimationFrame(loop);
+            this.animId = { id: requestAnimationFrame(loop) };
         }
-        requestAnimationFrame(loop);
+        this.animId = { id: requestAnimationFrame(loop) };
     }
 }
 
@@ -110,6 +162,8 @@ const LevelGameContainer = ({ w, h, N, children }: {
         style: {
             backgroundColor: 'lightblue',
             padding: '16px',
+            display: 'grid',
+            placeItems: 'center',
         },
     }, [
         Node('div', {
@@ -117,7 +171,6 @@ const LevelGameContainer = ({ w, h, N, children }: {
                 width: `${(w+2) * N}px`,
                 height: `${(h+2) * N}px`,
                 position: 'relative',
-                backgroundColor: 'green',
             },
         }, children),
     ]);
