@@ -1,8 +1,9 @@
 import * as LReact from '../l_react';
-import { level1, Level, Pt } from './game';
+import { level1, Level, Game, Pacman, Ghost } from './game';
+import { Pt } from './pt';
 const { Node, Text } = LReact;
 
-export class Game extends LReact.Component<{}, {}> {
+export class GameComponent extends LReact.Component<{}, {}> {
     level: Level;
 
     constructor(props: {}) {
@@ -13,10 +14,6 @@ export class Game extends LReact.Component<{}, {}> {
         const N = 10;
         return Node('div', {}, [
             Text('pacman'),
-            Node('pre', {}, [
-                Text(level1),
-                Text('cool'),
-            ]),
             Node(LevelGameContainer, {
                 N: 10,
                 w: this.level.w,
@@ -31,8 +28,17 @@ export class Game extends LReact.Component<{}, {}> {
 
 class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
     ctx?: CanvasRenderingContext2D;
+    pacman: Pacman;
+    ghosts: Ghost[];
     constructor(props) {
         super(props);
+        this.pacman = Pacman.create(props.level);
+        this.ghosts = [
+            Ghost.create(props.level, 'red'),
+            Ghost.create(props.level, 'blue'),
+            Ghost.create(props.level, 'yellow'),
+            Ghost.create(props.level, 'purple'),
+        ];
     }
 
     render() {
@@ -59,14 +65,15 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
         // ctx.fill();
         // ctx.closePath();
-
-        this.drawPacMan(90, { x: 100, y: 100 }, 0.05);
+        console.log(this.pacman.pos)
+        this.drawPacMan(this.pacman.dir.getAngle(), this.pacman.pos.scale(10).addY(4), 0.05);
+        this.ghosts.forEach(g => this.drawGhost(g));
     }
 
     drawPacMan(angle: number, pos: Pt, mouthOpenPerc: number) {
         const { ctx } = this;
         if (!ctx) return;
-        const size = 6;
+        const size = 4;
         ctx.translate(pos.x, pos.y);
         ctx.rotate(angle / (180 / Math.PI));
         const bx = mouthOpenPerc * Math.PI * 2;
@@ -85,6 +92,70 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         ctx.fill();
         ctx.resetTransform();
     }
+
+    drawGhost(ghost: Ghost) {
+        const { ctx } = this;
+        if (!ctx) return;
+        const size = 16;
+        const pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
+        ctx.translate(pos.x, pos.y);
+        ctx.fillStyle = ghost.color;
+        this.drawArc(0, 0, size * 0.5, 180, 360);
+        
+        ctx.beginPath();
+        ctx.rect(-size * 0.5, 0, size, size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        
+        for (let i = 0; i < 3; i++) {
+            this.drawArc(-size * 0.5 + size / 6 + (size / 3) * i, size * 0.4, size / 6, 0, 180);
+        }
+
+        
+        // eyes
+        const eyeSize = size * 0.15;
+        const eyeSizeS = eyeSize * 0.5;
+        ctx.fillStyle = 'white';
+        this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+        ctx.fillStyle = 'white';
+        this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+        // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
+        
+        ctx.resetTransform();
+    }
+
+    drawArc(x: number, y: number, radius: number, startAngle: number, endAngle: number) {
+        const { ctx } = this;
+        if (!ctx) return;
+
+        const scalar = Math.PI * 2 * (1 / 360);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, radius, scalar * startAngle , scalar * endAngle);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawEye(x: number, y: number, size: number, dir: Pt) {
+        const { ctx } = this;
+        if (!ctx) return;
+
+        ctx.fillStyle = 'white';
+        this.drawEllipse(x, y, size, size);
+        ctx.fillStyle = 'black';
+        const pupilSize = size * 0.5;
+        this.drawEllipse(x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
+    }
+
+    drawEllipse(x: number, y: number, xRad: number, yRad: number) {
+        const { ctx } = this;
+        if (!ctx) return;
+
+        ctx.beginPath();
+        ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
+        ctx.closePath();
+        ctx.fill();
+    }
 }
 
 const LevelGameContainer = ({ w, h, N, children }: {
@@ -102,8 +173,8 @@ const LevelGameContainer = ({ w, h, N, children }: {
     }, [
         Node('div', {
             style: {
-                width: `${(w+1) * N}px`,
-                height: `${h * N}px`,
+                width: `${(w+2) * N}px`,
+                height: `${(h+2) * N}px`,
                 position: 'relative',
                 backgroundColor: 'green',
             },
@@ -117,17 +188,23 @@ function RenderedLevel({
     level: Level,
 }) {
     const N = 10;
+    const thick = 2;
+    const halfThick = thick * 0.5;
+    const offset = new Pt(N, N);
     let blocks = [];
     for (let y = 0; y < level.h; y++) {
         for (let x = 0; x < level.w; x++) {
-            if (level.isPath(y, x))
-            blocks.push(Node(Block, {
-                top: y * N,
-                left: x * N,
-                width: N,
-                height: N,
-                color: 'black',
-            }));
+            if (level.isPath(y, x)) {
+                const center = new Pt(x + 0.5, y + 0.5);
+                const topLeft = center.add(-thick * 0.5, -thick * 0.5);
+                blocks.push(Node(Block, {
+                    top:  topLeft.y * N + offset.y,
+                    left: topLeft.x * N + offset.x,
+                    width:  N * thick,
+                    height: N * thick,
+                    color: 'black',
+                }));
+            }
         }
     }
     return Node('div', {}, [

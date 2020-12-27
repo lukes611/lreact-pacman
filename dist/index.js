@@ -413,17 +413,112 @@ function Init(node, domParent) {
 }
 
 exports.Init = Init;
-},{}],"pacman/game.ts":[function(require,module,exports) {
+},{}],"pacman/pt.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Level = exports.level1 = void 0;
-var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   |        \n|       |   |        \n|       |   +---+    \n|       |       |    \n|       |       |    \n|       |       |    \n+-------+   +---+---+\n        |   |       |\n        |   |       |\n        |   |       |\n        |   |       |\n        |   |       |\nt---p-------+   ----+\n        |   |        \n        |   |        \n        |   |        \n        |   +--------\n        |   |        \n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n|               |    \n+---------------+----\n";
+exports.Pt = exports.Radians2Degrees = void 0;
+exports.Radians2Degrees = 180 / Math.PI;
+
+var Pt =
+/** @class */
+function () {
+  function Pt(x, y) {
+    if (x === void 0) {
+      x = 0;
+    }
+
+    if (y === void 0) {
+      y = 0;
+    }
+
+    this.x = x;
+    this.y = y;
+  }
+
+  Pt.prototype.scale = function (v) {
+    return new Pt(this.x * v, this.y * v);
+  };
+
+  Pt.prototype.addY = function (yv) {
+    return new Pt(this.x, this.y + yv);
+  };
+
+  Pt.prototype.add = function (x, y) {
+    return new Pt(this.x + x, this.y + y);
+  };
+
+  Pt.fromAngle = function (angle) {
+    var rv = new Pt(0, 0);
+    angle /= exports.Radians2Degrees;
+    rv.x = Math.cos(angle);
+    rv.y = Math.sin(angle);
+    return rv;
+  };
+
+  Pt.prototype.getAngle = function () {
+    var angle = exports.Radians2Degrees * Math.atan(this.y / this.x);
+    if (this.x < 0.0) angle += 180.0;else if (this.y < 0.0) angle += 360.0;
+    return angle;
+  };
+
+  Pt.prototype.mag = function () {
+    return Math.sqrt(this.x * this.x + this.y * this.y);
+  };
+
+  Pt.prototype.unit = function () {
+    return this.scale(1 / this.mag());
+  };
+
+  return Pt;
+}();
+
+exports.Pt = Pt;
+},{}],"pacman/game.ts":[function(require,module,exports) {
+"use strict";
+
+var __extends = this && this.__extends || function () {
+  var _extendStatics = function extendStatics(d, b) {
+    _extendStatics = Object.setPrototypeOf || {
+      __proto__: []
+    } instanceof Array && function (d, b) {
+      d.__proto__ = b;
+    } || function (d, b) {
+      for (var p in b) {
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+      }
+    };
+
+    return _extendStatics(d, b);
+  };
+
+  return function (d, b) {
+    _extendStatics(d, b);
+
+    function __() {
+      this.constructor = d;
+    }
+
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+  };
+}();
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Game = exports.Ghost = exports.Pacman = exports.Agent = exports.Level = exports.level1 = void 0;
+
+var pt_1 = require("./pt");
+
+var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   |        \n|       |   |        \n|       |   +---+    \n|       |       |    \n|       |       |    \n|       |       |    \n+-------+   +---+---+\n        |   |       g\n        |   |       g\n        |   |       g\n        |   |       g\n        |   |       g\nt---p-------+   ggggg\n        |   |        \n        |   |        \n        |   |        \n        |   +--------\n        |   |        \n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n|               |    \n+---------------+----\n";
 exports.level1 = halfLevel1.split('\n').map(function (line) {
   if (line.startsWith('#')) return line;
-  var secondHalf = line.substring(0, line.length - 1).split('').reverse().join('');
+  var secondHalf = line.substring(0, line.length - 1).split('').reverse().map(function (v) {
+    if (v === 'p' || v === 't') return '+';
+    return v;
+  }).join('');
   return line + secondHalf;
 }).join('\n');
 
@@ -452,11 +547,102 @@ function () {
     return v;
   };
 
+  Level.prototype.getLocationsOfChar = function (ch) {
+    var out = [];
+    this.forEach(function (v, x, y) {
+      if (v === ch) {
+        out.push(new pt_1.Pt(x, y));
+      }
+    });
+    return out;
+  };
+
+  Level.prototype.getRandomLocationOfChar = function (ch) {
+    var locations = this.getLocationsOfChar(ch);
+    var index = Math.floor(Math.random() * locations.length);
+    return locations[index];
+  };
+
+  Level.prototype.forEach = function (f) {
+    for (var y = 0; y < this.h; y++) {
+      for (var x = 0; x < this.w; x++) {
+        f(this.getV(y, x), x, y);
+      }
+    }
+  };
+
   return Level;
 }();
 
 exports.Level = Level;
-},{}],"pacman/index.ts":[function(require,module,exports) {
+
+var Agent =
+/** @class */
+function () {
+  function Agent(pos, dir, level) {
+    this.pos = pos;
+    this.dir = dir;
+    this.level = level;
+  }
+
+  return Agent;
+}();
+
+exports.Agent = Agent;
+
+var Pacman =
+/** @class */
+function (_super) {
+  __extends(Pacman, _super);
+
+  function Pacman(pos, dir, level) {
+    var _this = _super.call(this, pos, dir, level) || this;
+
+    _this.mouthOpenPerc = 0;
+    return _this;
+  }
+
+  Pacman.create = function (lvl) {
+    return new Pacman(lvl.getLocationsOfChar('p').pop(), new pt_1.Pt(1, 0), lvl);
+  };
+
+  return Pacman;
+}(Agent);
+
+exports.Pacman = Pacman;
+
+var Ghost =
+/** @class */
+function (_super) {
+  __extends(Ghost, _super);
+
+  function Ghost(pos, dir, level, color, scared) {
+    var _this = _super.call(this, pos, dir, level) || this;
+
+    _this.color = color;
+    _this.scared = scared;
+    return _this;
+  }
+
+  Ghost.create = function (lvl, color) {
+    return new Ghost(lvl.getRandomLocationOfChar('g'), new pt_1.Pt(1, 0), lvl, color, false);
+  };
+
+  return Ghost;
+}(Agent);
+
+exports.Ghost = Ghost;
+
+var Game =
+/** @class */
+function () {
+  function Game() {}
+
+  return Game;
+}();
+
+exports.Game = Game;
+},{"./pt":"pacman/pt.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -536,30 +722,32 @@ var __spreadArrays = this && this.__spreadArrays || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Game = void 0;
+exports.GameComponent = void 0;
 
 var LReact = __importStar(require("../l_react"));
 
 var game_1 = require("./game");
 
+var pt_1 = require("./pt");
+
 var Node = LReact.Node,
     Text = LReact.Text;
 
-var Game =
+var GameComponent =
 /** @class */
 function (_super) {
-  __extends(Game, _super);
+  __extends(GameComponent, _super);
 
-  function Game(props) {
+  function GameComponent(props) {
     var _this = _super.call(this, props) || this;
 
     _this.level = game_1.Level.createLevel1();
     return _this;
   }
 
-  Game.prototype.render = function () {
+  GameComponent.prototype.render = function () {
     var N = 10;
-    return Node('div', {}, [Text('pacman'), Node('pre', {}, [Text(game_1.level1), Text('cool')]), Node(LevelGameContainer, {
+    return Node('div', {}, [Text('pacman'), Node(LevelGameContainer, {
       N: 10,
       w: this.level.w,
       h: this.level.h
@@ -570,10 +758,10 @@ function (_super) {
     }, [])])]);
   };
 
-  return Game;
+  return GameComponent;
 }(LReact.Component);
 
-exports.Game = Game;
+exports.GameComponent = GameComponent;
 
 var AnimatedGame =
 /** @class */
@@ -590,12 +778,17 @@ function (_super) {
       // ctx.fill();
       // ctx.closePath();
 
-      _this.drawPacMan(90, {
-        x: 100,
-        y: 100
-      }, 0.05);
+      console.log(_this.pacman.pos);
+
+      _this.drawPacMan(_this.pacman.dir.getAngle(), _this.pacman.pos.scale(10).addY(4), 0.05);
+
+      _this.ghosts.forEach(function (g) {
+        return _this.drawGhost(g);
+      });
     };
 
+    _this.pacman = game_1.Pacman.create(props.level);
+    _this.ghosts = [game_1.Ghost.create(props.level, 'red'), game_1.Ghost.create(props.level, 'blue'), game_1.Ghost.create(props.level, 'yellow'), game_1.Ghost.create(props.level, 'purple')];
     return _this;
   }
 
@@ -618,7 +811,7 @@ function (_super) {
   AnimatedGame.prototype.drawPacMan = function (angle, pos, mouthOpenPerc) {
     var ctx = this.ctx;
     if (!ctx) return;
-    var size = 6;
+    var size = 4;
     ctx.translate(pos.x, pos.y);
     ctx.rotate(angle / (180 / Math.PI));
     var bx = mouthOpenPerc * Math.PI * 2;
@@ -638,6 +831,63 @@ function (_super) {
     ctx.resetTransform();
   };
 
+  AnimatedGame.prototype.drawGhost = function (ghost) {
+    var ctx = this.ctx;
+    if (!ctx) return;
+    var size = 16;
+    var pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
+    ctx.translate(pos.x, pos.y);
+    ctx.fillStyle = ghost.color;
+    this.drawArc(0, 0, size * 0.5, 180, 360);
+    ctx.beginPath();
+    ctx.rect(-size * 0.5, 0, size, size * 0.5);
+    ctx.closePath();
+    ctx.fill();
+
+    for (var i = 0; i < 3; i++) {
+      this.drawArc(-size * 0.5 + size / 6 + size / 3 * i, size * 0.4, size / 6, 0, 180);
+    } // eyes
+
+
+    var eyeSize = size * 0.15;
+    var eyeSizeS = eyeSize * 0.5;
+    ctx.fillStyle = 'white';
+    this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+    ctx.fillStyle = 'white';
+    this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dir); // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
+
+    ctx.resetTransform();
+  };
+
+  AnimatedGame.prototype.drawArc = function (x, y, radius, startAngle, endAngle) {
+    var ctx = this.ctx;
+    if (!ctx) return;
+    var scalar = Math.PI * 2 * (1 / 360);
+    ctx.beginPath();
+    ctx.arc(x, y, radius, scalar * startAngle, scalar * endAngle);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  AnimatedGame.prototype.drawEye = function (x, y, size, dir) {
+    var ctx = this.ctx;
+    if (!ctx) return;
+    ctx.fillStyle = 'white';
+    this.drawEllipse(x, y, size, size);
+    ctx.fillStyle = 'black';
+    var pupilSize = size * 0.5;
+    this.drawEllipse(x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
+  };
+
+  AnimatedGame.prototype.drawEllipse = function (x, y, xRad, yRad) {
+    var ctx = this.ctx;
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
+    ctx.closePath();
+    ctx.fill();
+  };
+
   return AnimatedGame;
 }(LReact.Component);
 
@@ -653,8 +903,8 @@ var LevelGameContainer = function LevelGameContainer(_a) {
     }
   }, [Node('div', {
     style: {
-      width: (w + 1) * N + "px",
-      height: h * N + "px",
+      width: (w + 2) * N + "px",
+      height: (h + 2) * N + "px",
       position: 'relative',
       backgroundColor: 'green'
     }
@@ -664,17 +914,24 @@ var LevelGameContainer = function LevelGameContainer(_a) {
 function RenderedLevel(_a) {
   var level = _a.level;
   var N = 10;
+  var thick = 2;
+  var halfThick = thick * 0.5;
+  var offset = new pt_1.Pt(N, N);
   var blocks = [];
 
   for (var y = 0; y < level.h; y++) {
     for (var x = 0; x < level.w; x++) {
-      if (level.isPath(y, x)) blocks.push(Node(Block, {
-        top: y * N,
-        left: x * N,
-        width: N,
-        height: N,
-        color: 'black'
-      }));
+      if (level.isPath(y, x)) {
+        var center = new pt_1.Pt(x + 0.5, y + 0.5);
+        var topLeft = center.add(-thick * 0.5, -thick * 0.5);
+        blocks.push(Node(Block, {
+          top: topLeft.y * N + offset.y,
+          left: topLeft.x * N + offset.x,
+          width: N * thick,
+          height: N * thick,
+          color: 'black'
+        }));
+      }
     }
   }
 
@@ -699,7 +956,7 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"../l_react":"l_react.ts","./game":"pacman/game.ts"}],"index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -782,7 +1039,7 @@ function (_super) {
   }
 
   Peanut.prototype.render = function () {
-    return LReact.Node('div', {}, [LReact.Text('wow - peanuts'), LReact.Node(index_1.Game, {}, [])]);
+    return LReact.Node('div', {}, [LReact.Text('wow - peanuts'), LReact.Node(index_1.GameComponent, {}, [])]);
   };
 
   return Peanut;
