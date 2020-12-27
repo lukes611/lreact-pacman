@@ -193,15 +193,6 @@ export class Level {
         return false;
     }
 
-    surroundingPaths(pIn: Pt) {
-        const p = this.getClosestRailPoint(pIn);
-        let count = 0;
-        this.forSurroundingPoints(p, (_, __, v) => {
-            count += v && v !== ' ' ? 1 : 0;
-        });
-        return count;
-    }
-
     onALinearPath(pIn: Pt) {
         const p = this.getClosestRailPoint(pIn);
         const st = new Map<Dir, boolean>();
@@ -212,10 +203,7 @@ export class Level {
             || (!st.get('up') && !st.get('down') && st.get('left') && st.get('right'));
     }
 
-    deadEnd(p: Pt) {
-        return this.surroundingPaths(p) === 1;
-    }
-
+    
     forSurroundingPoints(p: Pt, f: (dir: Dir, p: Pt, v: string | undefined) => void) {
         const dirArr: Dir[] = ['up', 'down', 'left', 'right'];
         dirArr
@@ -389,21 +377,11 @@ export class Pacman extends Agent {
         this.railGuide();
         
         if (playerInput) {
-            // this.pos = this.level.getClosestRailPoint(this.pos);
-            // const options = this.level.getDirectionOptions(this.pos);
-            // console.log(options)
-            // if (!options.includes(playerInput)) return;
-            // this.pos = this.pos.round();
             this.dir = playerInput;
-            // const vel = this.dir.scale(dt * 0.005);
             const vel = this.getMoveVec(dt);
-            console.log({ vel, dir: this.dir })
             const outcome = this.level.getSafeMove(this.pos, vel)
             if (outcome.safe) {
-                // this.pos = this.pos.addP(vel);
                 this.pos = outcome.newPos;
-            } else {
-                // this.pos = this.pos.round();
             }
         }
 
@@ -432,24 +410,80 @@ export class Ghost extends Agent {
         return closestRailPoint.eq(this.lastGate);
     }
 
-    tick(dt: number) {
-        this.railGuide();
-        if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
-        if (((this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere()) && (!this.level.onALinearPath(this.pos)))) {
-            // const shouldChange = Math.random() < 0.6;
-            if (true) {
-                this.pos = this.level.getClosestRailPoint(this.pos);
-                const options = this.level.getDirectionOptions(this.pos);
-                if (options.length) {
-                    const randomDir = options[Math.floor(Math.random() * options.length)];
-                    this.dir = randomDir;
-                    this.lastGate = this.level.getClosestRailPoint(this.pos).round();
+    canSeePacman(pmp: Pt): Dir | undefined {
+        const pos = this.pos;
+        const _ = pos.y % 1;
+        const _2 = pos.x % 1;
+        const canCheckY = _ < 0.1 || _ > 0.9;
+        const canCheckX = _2 < 0.1 || _2 > 0.9;
+        const py = Math.round(pos.y);
+        const px = Math.round(pos.x);
+        if (canCheckY && py === Math.round(py) && py === pmp.y) {
+            // check along x axis
+            const mn = Math.min(pmp.x, pos.x);
+            const mx = Math.max(pmp.x, pos.x);
+            const MMM = 100;
+            let count = 0;
+            let foundNonPath = false;
+            for (let i = Math.ceil(mn); i <= Math.floor(mx); i++) {
+                if (!this.level.isPath(i, py) || count > MMM) {
+                    foundNonPath = true;
+                    break;
                 }
+                count++;
+                if (count > MMM) 
             }
+            if (!foundNonPath) return pmp.x === mn ? 'left' : 'right';
+            return undefined;
+        } else if (canCheckX && px === Math.round(px) && px === pmp.x) {
+            // check along y axis
+            const mn = Math.min(pmp.y, pos.y);
+            const mx = Math.max(pmp.y, pos.y);
+            const MMM = 100;
+            let count = 0;
+            let foundNonPath = false;
+            for (let i = Math.ceil(mn); i <= Math.floor(mx); i++) {
+                if (!this.level.isPath(px, i) || count > MMM) {
+                    foundNonPath = true;
+                    break;
+                }
+                count++;
+                if (count > MMM) 
+            }
+            if (!foundNonPath) return pmp.y === mn ? 'up' : 'down';
+            return undefined;
+        }
+        return;
+    }
 
+    tick(dt: number, pacmanPos: Pt) {
+        this.railGuide();
+        const seePacman = this.canSeePacman(pacmanPos);
+        let speed = 1;
+        if (seePacman) {
+            this.dir = seePacman;
+            speed = 1.2;
+            this.railGuide();
+            
+        } else {
+            if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
+            if (((this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere()) && (!this.level.onALinearPath(this.pos)))) {
+                // const shouldChange = Math.random() < 0.6;
+                if (true) {
+                    this.pos = this.level.getClosestRailPoint(this.pos);
+                    const options = this.level.getDirectionOptions(this.pos);
+                    if (options.length) {
+                        const randomDir = options[Math.floor(Math.random() * options.length)];
+                        this.dir = randomDir;
+                        this.railGuide();
+                        this.lastGate = this.level.getClosestRailPoint(this.pos).round();
+                    }
+                }
+    
+            }
         }
 
-        const vel = this.dirV.scale(dt * 0.005);
+        const vel = this.dirV.scale(dt * 0.005 * speed);
         const outcome = this.level.getSafeMove(this.pos, vel)
         if (outcome.safe) {
             this.pos = outcome.newPos;
@@ -474,9 +508,9 @@ export class Game {
         ];
     }
 
-    tick(dt, playerInput?: Dir) {
+    tick(dt: number, playerInput?: Dir) {
         this.pacman.tick(dt, playerInput);
-        this.ghosts.forEach(g => g.tick(dt));
+        this.ghosts.forEach(g => g.tick(dt, this.pacman.pos));
     }
 }
 

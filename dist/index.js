@@ -716,15 +716,6 @@ function () {
     return false;
   };
 
-  Level.prototype.surroundingPaths = function (pIn) {
-    var p = this.getClosestRailPoint(pIn);
-    var count = 0;
-    this.forSurroundingPoints(p, function (_, __, v) {
-      count += v && v !== ' ' ? 1 : 0;
-    });
-    return count;
-  };
-
   Level.prototype.onALinearPath = function (pIn) {
     var p = this.getClosestRailPoint(pIn);
     var st = new Map();
@@ -732,10 +723,6 @@ function () {
       if (v && v !== ' ') st.set(d, true);
     });
     return st.get('up') && st.get('down') && !st.get('left') && !st.get('right') || !st.get('up') && !st.get('down') && st.get('left') && st.get('right');
-  };
-
-  Level.prototype.deadEnd = function (p) {
-    return this.surroundingPaths(p) === 1;
   };
 
   Level.prototype.forSurroundingPoints = function (p, f) {
@@ -944,24 +931,12 @@ function (_super) {
     this.railGuide();
 
     if (playerInput) {
-      // this.pos = this.level.getClosestRailPoint(this.pos);
-      // const options = this.level.getDirectionOptions(this.pos);
-      // console.log(options)
-      // if (!options.includes(playerInput)) return;
-      // this.pos = this.pos.round();
-      this.dir = playerInput; // const vel = this.dir.scale(dt * 0.005);
-
+      this.dir = playerInput;
       var vel = this.getMoveVec(dt);
-      console.log({
-        vel: vel,
-        dir: this.dir
-      });
       var outcome = this.level.getSafeMove(this.pos, vel);
 
       if (outcome.safe) {
-        // this.pos = this.pos.addP(vel);
         this.pos = outcome.newPos;
-      } else {// this.pos = this.pos.round();
       }
     }
   };
@@ -994,25 +969,92 @@ function (_super) {
     return closestRailPoint.eq(this.lastGate);
   };
 
-  Ghost.prototype.tick = function (dt) {
+  Ghost.prototype.canSeePacman = function (pmp) {
+    var pos = this.pos;
+
+    var _ = pos.y % 1;
+
+    var _2 = pos.x % 1;
+
+    var canCheckY = _ < 0.1 || _ > 0.9;
+    var canCheckX = _2 < 0.1 || _2 > 0.9;
+    var py = Math.round(pos.y);
+    var px = Math.round(pos.x);
+
+    if (canCheckY && py === Math.round(py) && py === pmp.y) {
+      // check along x axis
+      var mn = Math.min(pmp.x, pos.x);
+      var mx = Math.max(pmp.x, pos.x);
+      var MMM = 100;
+      var count = 0;
+      var foundNonPath = false;
+
+      for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
+        if (!this.level.isPath(i, py) || count > MMM) {
+          foundNonPath = true;
+          break;
+        }
+
+        count++;
+        if (count > MMM) ;
+      }
+
+      if (!foundNonPath) return pmp.x === mn ? 'left' : 'right';
+      return undefined;
+    } else if (canCheckX && px === Math.round(px) && px === pmp.x) {
+      // check along y axis
+      var mn = Math.min(pmp.y, pos.y);
+      var mx = Math.max(pmp.y, pos.y);
+      var MMM = 100;
+      var count = 0;
+      var foundNonPath = false;
+
+      for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
+        if (!this.level.isPath(px, i) || count > MMM) {
+          foundNonPath = true;
+          break;
+        }
+
+        count++;
+        if (count > MMM) ;
+      }
+
+      if (!foundNonPath) return pmp.y === mn ? 'up' : 'down';
+      return undefined;
+    }
+
+    return;
+  };
+
+  Ghost.prototype.tick = function (dt, pacmanPos) {
     this.railGuide();
-    if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
+    var seePacman = this.canSeePacman(pacmanPos);
+    var speed = 1;
 
-    if (this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
-      // const shouldChange = Math.random() < 0.6;
-      if (true) {
-        this.pos = this.level.getClosestRailPoint(this.pos);
-        var options = this.level.getDirectionOptions(this.pos);
+    if (seePacman) {
+      this.dir = seePacman;
+      speed = 1.2;
+      this.railGuide();
+    } else {
+      if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
 
-        if (options.length) {
-          var randomDir = options[Math.floor(Math.random() * options.length)];
-          this.dir = randomDir;
-          this.lastGate = this.level.getClosestRailPoint(this.pos).round();
+      if (this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
+        // const shouldChange = Math.random() < 0.6;
+        if (true) {
+          this.pos = this.level.getClosestRailPoint(this.pos);
+          var options = this.level.getDirectionOptions(this.pos);
+
+          if (options.length) {
+            var randomDir = options[Math.floor(Math.random() * options.length)];
+            this.dir = randomDir;
+            this.railGuide();
+            this.lastGate = this.level.getClosestRailPoint(this.pos).round();
+          }
         }
       }
     }
 
-    var vel = this.dirV.scale(dt * 0.005);
+    var vel = this.dirV.scale(dt * 0.005 * speed);
     var outcome = this.level.getSafeMove(this.pos, vel);
 
     if (outcome.safe) {
@@ -1037,9 +1079,11 @@ function () {
   }
 
   Game.prototype.tick = function (dt, playerInput) {
+    var _this = this;
+
     this.pacman.tick(dt, playerInput);
     this.ghosts.forEach(function (g) {
-      return g.tick(dt);
+      return g.tick(dt, _this.pacman.pos);
     });
   };
 
@@ -1295,7 +1339,7 @@ function (_super) {
     var size = 16;
     var pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
     ctx.translate(pos.x, pos.y);
-    ctx.fillStyle = ghost.color;
+    ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
     this.drawArc(0, 0, size * 0.5, 180, 360);
     ctx.beginPath();
     ctx.rect(-size * 0.5, 0, size, size * 0.5);

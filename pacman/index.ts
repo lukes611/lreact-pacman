@@ -130,7 +130,7 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         const size = 16;
         const pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
         ctx.translate(pos.x, pos.y);
-        ctx.fillStyle = ghost.color;
+        ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
         this.drawArc(0, 0, size * 0.5, 180, 360);
         
         ctx.beginPath();
