@@ -1,5 +1,5 @@
 import * as LReact from '../l_react';
-import { level1, Level, Game, Pacman, Ghost } from './game';
+import { level1, Level, Game, Pacman, Ghost, Dir } from './game';
 import { Pt } from './pt';
 const { Node, Text } = LReact;
 
@@ -28,25 +28,21 @@ export class GameComponent extends LReact.Component<{}, {}> {
 
 class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
     ctx?: CanvasRenderingContext2D;
-    pacman: Pacman;
-    ghosts: Ghost[];
-    constructor(props) {
+    game: Game;
+    canvasPixels: Pt;
+    keys = new Map<string, boolean>();
+    constructor(props: { level: Level }) {
         super(props);
-        this.pacman = Pacman.create(props.level);
-        this.ghosts = [
-            Ghost.create(props.level, 'red'),
-            Ghost.create(props.level, 'blue'),
-            Ghost.create(props.level, 'yellow'),
-            Ghost.create(props.level, 'purple'),
-        ];
+        this.game = new Game(props.level);
+        this.canvasPixels = new Pt(props.level.w + 1, props.level.h);
     }
 
     render() {
         const { level } = this.props;
         return Node('canvas', {
             ref: this.canvasSet,
-            width: (level.w+1) * 10,
-            height: level.h * 10,
+            width: this.canvasPixels.x * 10,
+            height: this.canvasPixels.y * 10,
             style: {
                 width: `${(level.w+1) * 10}px`,
                 height: `${level.h * 10}px`,
@@ -61,36 +57,34 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         const ctx = canvas.getContext('2d');
         this.ctx = ctx;
         this.gameLoop();
-
-        // ctx.fillStyle = 'yellow';
-        // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
-        // ctx.fill();
-        // ctx.closePath();
-        // console.log(this.pacman.pos)
+        document.body.addEventListener('keydown', (e: KeyboardEvent) => {
+            this.keys.set(e.key, true);
+        });
+        document.body.addEventListener('keyup', (e: KeyboardEvent) => {
+            this.keys.set(e.key, false);
+        })
         
     }
 
+    getPlayerInputDir(): Dir | undefined {
+        if (this.keys.get('ArrowUp')) return 'up';
+        if (this.keys.get('ArrowRight')) return 'right';
+        if (this.keys.get('ArrowLeft')) return 'left';
+        if (this.keys.get('ArrowDown')) return 'down';
+    }
+
     gameLoop() {
-        const test = new Pt(20, 16);
-        let _test = '';
-        this.props.level.forEach((v, x, y) => {
-            if (x === 0 && y !== 0) _test += '\n';
-            _test += v;
-        });
-        console.log(_test);
-        console.log('YAAAA', this.props.level.getV(test.x, test.y + 3));
         let prevDelta = 0;
         const loop = (delta: number) => {
-            const { ctx } = this;
+            const { ctx, game } = this;
             if (!ctx) return;
             const dt = delta - prevDelta;
             prevDelta = delta;
-            this.ghosts.forEach(g => g.tick(dt))
+            game.tick(dt, this.getPlayerInputDir());
+            ctx.clearRect(0, 0, this.canvasPixels.x * 10, this.canvasPixels.y * 10);
             
-            ctx.clearRect(0, 0, 400, 400);
-            
-            this.drawPacMan(this.pacman.dir.getAngle(), this.pacman.pos.scale(10).addY(4), 0.05);
-            this.ghosts.forEach(g => this.drawGhost(g));
+            this.drawPacMan(game.pacman);
+            game.ghosts.forEach(g => this.drawGhost(g));
 
             this.props.level.forEach((v, x, y) => {
                 if (v === ' ') return;
@@ -104,10 +98,13 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         requestAnimationFrame(loop);
     }
 
-    drawPacMan(angle: number, pos: Pt, mouthOpenPerc: number) {
+    drawPacMan(pacman: Pacman) {
         const { ctx } = this;
         if (!ctx) return;
-        const size = 4;
+        const size = 8;
+        const pos = pacman.pos.add(1.5, 1.4).scale(10);
+        const { mouthOpenPerc } = pacman;
+        const angle = pacman.dirV.getAngle();
         ctx.translate(pos.x, pos.y);
         ctx.rotate(angle / (180 / Math.PI));
         const bx = mouthOpenPerc * Math.PI * 2;
@@ -150,9 +147,9 @@ class AnimatedGame extends LReact.Component<{ level: Level }, {}> {
         const eyeSize = size * 0.15;
         const eyeSizeS = eyeSize * 0.5;
         ctx.fillStyle = 'white';
-        this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+        this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
         ctx.fillStyle = 'white';
-        this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+        this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
         // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
         
         ctx.resetTransform();

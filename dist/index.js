@@ -676,10 +676,13 @@ function () {
     return p.round();
   };
 
-  Level.prototype.nearARailPoint = function (p) {
+  Level.prototype.nearARailPoint = function (p, maxD) {
+    if (maxD === void 0) {
+      maxD = 0.08;
+    }
+
     var xD = Math.abs(p.x - Math.round(p.x));
     var yD = Math.abs(p.y - Math.round(p.y));
-    var maxD = 0.08;
     if (xD > maxD || yD > maxD) return false;
     return true;
   };
@@ -693,7 +696,24 @@ function () {
   };
 
   Level.prototype.isSafePosition = function (p) {
-    return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+    return this.onRail(p); // return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+  };
+
+  Level.prototype.onRail = function (p) {
+    if (this.isRailPoint(p) && this.isPathP(p)) return true;
+
+    if (p.y % 1 === 0) {
+      // left/right
+      var fx = Math.floor(p.x);
+      var cx = Math.ceil(p.x);
+      if (this.isPath(fx, p.y) && this.isPath(cx, p.y)) return true;
+      return false;
+    }
+
+    var fy = Math.floor(p.y);
+    var cy = Math.ceil(p.y);
+    if (this.isPath(p.x, fy) && this.isPath(p.x, cy)) return true;
+    return false;
   };
 
   Level.prototype.surroundingPaths = function (pIn) {
@@ -780,6 +800,7 @@ function () {
   Level.prototype.getRailMoveVec = function (p, moveVec) {
     // if moving is safe -> return vec
     if (this.isSafePosition(p.addP(moveVec))) return moveVec;
+    console.log('more checking2');
     var vel = ptToVel(moveVec);
     var straddlePos = this.getStraddlePositions(p, vel.dir);
 
@@ -789,6 +810,7 @@ function () {
       return undefined;
     } else {
       // else -> fix vec so movemag is equal to dist to next straddle of p
+      console.log('fix', ptToVel(moveVec).dir, moveVec);
       var newSafePos = straddlePos.to;
 
       if (this.isSafePosition(newSafePos)) {
@@ -801,19 +823,39 @@ function () {
 
   Level.prototype.getSafeMove = function (p, moveVec) {
     var to = p.addP(moveVec);
-    if (this.isSafePosition(to)) return {
+    if (this.onRail(to)) return {
       safe: true,
       newPos: to
     };
-    var modifiedMove = this.getRailMoveVec(p, moveVec);
+    var cp = p.copy();
+    var modTo;
 
-    if (modifiedMove) {
-      return {
-        safe: true,
-        newPos: p.addP(modifiedMove)
-      };
+    switch (ptToVel(moveVec).dir) {
+      case 'left':
+        cp.y = Math.round(cp.y);
+        cp.x += moveVec.x;
+        break;
+
+      case 'right':
+        cp.y = Math.round(cp.y);
+        cp.x += moveVec.x;
+        break;
+
+      case 'up':
+        cp.x = Math.round(cp.x);
+        cp.y += moveVec.y;
+        break;
+
+      case 'down':
+        cp.x = Math.round(cp.x);
+        cp.y += moveVec.y;
+        break;
     }
 
+    if (this.onRail(cp)) return {
+      safe: true,
+      newPos: cp
+    };
     return {
       safe: false
     };
@@ -831,6 +873,8 @@ function () {
     this.pos = pos;
     this.dir = dir;
     this.level = level;
+    this.minMoveDist = 0.1;
+    this.maxMoveDist = 0.1;
   }
 
   Agent.prototype.getClosestRailPoint = function () {
@@ -839,6 +883,37 @@ function () {
 
   Agent.prototype.nearARailPoint = function () {
     return this.level.nearARailPoint(this.pos);
+  };
+
+  Object.defineProperty(Agent.prototype, "dirV", {
+    get: function get() {
+      return dirToPt(this.dir);
+    },
+    enumerable: false,
+    configurable: true
+  });
+
+  Agent.prototype.getMoveVec = function (dt) {
+    var dirV = this.dirV.scale(dt * 0.005);
+
+    if (this.dir === 'right' || this.dir === 'left') {
+      return new pt_1.Pt(signedClamp(dirV.x, this.minMoveDist, this.maxMoveDist), dirV.y);
+    }
+
+    return new pt_1.Pt(dirV.x, signedClamp(dirV.y, this.minMoveDist, this.maxMoveDist));
+  };
+
+  Agent.prototype.railGuide = function () {
+    switch (this.dir) {
+      case 'left':
+      case 'right':
+        this.pos.y = Math.round(this.pos.y);
+        break;
+
+      case 'down':
+      case 'up':
+        this.pos.x = Math.round(this.pos.x);
+    }
   };
 
   return Agent;
@@ -855,11 +930,40 @@ function (_super) {
     var _this = _super.call(this, pos, dir, level) || this;
 
     _this.mouthOpenPerc = 0;
+    _this.internalTick = 0;
     return _this;
   }
 
   Pacman.create = function (lvl) {
-    return new Pacman(lvl.getLocationsOfChar('p').pop(), new pt_1.Pt(1, 0), lvl);
+    return new Pacman(lvl.getLocationsOfChar('p').pop(), 'right', lvl);
+  };
+
+  Pacman.prototype.tick = function (dt, playerInput) {
+    this.internalTick += dt;
+    this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.005)) * 0.1;
+    this.railGuide();
+
+    if (playerInput) {
+      // this.pos = this.level.getClosestRailPoint(this.pos);
+      // const options = this.level.getDirectionOptions(this.pos);
+      // console.log(options)
+      // if (!options.includes(playerInput)) return;
+      // this.pos = this.pos.round();
+      this.dir = playerInput; // const vel = this.dir.scale(dt * 0.005);
+
+      var vel = this.getMoveVec(dt);
+      console.log({
+        vel: vel,
+        dir: this.dir
+      });
+      var outcome = this.level.getSafeMove(this.pos, vel);
+
+      if (outcome.safe) {
+        // this.pos = this.pos.addP(vel);
+        this.pos = outcome.newPos;
+      } else {// this.pos = this.pos.round();
+      }
+    }
   };
 
   return Pacman;
@@ -881,8 +985,7 @@ function (_super) {
   }
 
   Ghost.create = function (lvl, color) {
-    return new Ghost( // lvl.getRandomLocationOfChar('g'),
-    new pt_1.Pt(22, 19), new pt_1.Pt(1, 0), lvl, color, false);
+    return new Ghost(new pt_1.Pt(22, 19), 'right', lvl, color, false);
   };
 
   Ghost.prototype.lastMovedFromHere = function () {
@@ -892,6 +995,7 @@ function (_super) {
   };
 
   Ghost.prototype.tick = function (dt) {
+    this.railGuide();
     if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
 
     if (this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
@@ -902,13 +1006,13 @@ function (_super) {
 
         if (options.length) {
           var randomDir = options[Math.floor(Math.random() * options.length)];
-          this.dir = dirToPt(randomDir);
+          this.dir = randomDir;
           this.lastGate = this.level.getClosestRailPoint(this.pos).round();
         }
       }
     }
 
-    var vel = this.dir.scale(dt * 0.005);
+    var vel = this.dirV.scale(dt * 0.005);
     var outcome = this.level.getSafeMove(this.pos, vel);
 
     if (outcome.safe) {
@@ -926,12 +1030,31 @@ exports.Ghost = Ghost;
 var Game =
 /** @class */
 function () {
-  function Game() {}
+  function Game(level) {
+    this.level = level;
+    this.pacman = Pacman.create(level);
+    this.ghosts = [Ghost.create(level, 'red'), Ghost.create(level, 'blue'), Ghost.create(level, 'yellow'), Ghost.create(level, 'purple')];
+  }
+
+  Game.prototype.tick = function (dt, playerInput) {
+    this.pacman.tick(dt, playerInput);
+    this.ghosts.forEach(function (g) {
+      return g.tick(dt);
+    });
+  };
 
   return Game;
 }();
 
 exports.Game = Game;
+
+function signedClamp(x, min, max) {
+  var neg = x < 0;
+  var v = x;
+  if (neg) v = -x;
+  var out = Math.max(Math.min(v, max), min);
+  return neg ? -out : out;
+}
 },{"./pt":"pacman/pt.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
 
@@ -1061,20 +1184,24 @@ function (_super) {
   function AnimatedGame(props) {
     var _this = _super.call(this, props) || this;
 
+    _this.keys = new Map();
+
     _this.canvasSet = function (canvas) {
       var ctx = canvas.getContext('2d');
       _this.ctx = ctx;
 
-      _this.gameLoop(); // ctx.fillStyle = 'yellow';
-      // ctx.arc(30, 30, 20, 0, Math.PI * 2 * 0.25);
-      // ctx.fill();
-      // ctx.closePath();
-      // console.log(this.pacman.pos)
+      _this.gameLoop();
 
+      document.body.addEventListener('keydown', function (e) {
+        _this.keys.set(e.key, true);
+      });
+      document.body.addEventListener('keyup', function (e) {
+        _this.keys.set(e.key, false);
+      });
     };
 
-    _this.pacman = game_1.Pacman.create(props.level);
-    _this.ghosts = [game_1.Ghost.create(props.level, 'red'), game_1.Ghost.create(props.level, 'blue'), game_1.Ghost.create(props.level, 'yellow'), game_1.Ghost.create(props.level, 'purple')];
+    _this.game = new game_1.Game(props.level);
+    _this.canvasPixels = new pt_1.Pt(props.level.w + 1, props.level.h);
     return _this;
   }
 
@@ -1082,8 +1209,8 @@ function (_super) {
     var level = this.props.level;
     return Node('canvas', {
       ref: this.canvasSet,
-      width: (level.w + 1) * 10,
-      height: level.h * 10,
+      width: this.canvasPixels.x * 10,
+      height: this.canvasPixels.y * 10,
       style: {
         width: (level.w + 1) * 10 + "px",
         height: level.h * 10 + "px",
@@ -1094,34 +1221,31 @@ function (_super) {
     });
   };
 
+  AnimatedGame.prototype.getPlayerInputDir = function () {
+    if (this.keys.get('ArrowUp')) return 'up';
+    if (this.keys.get('ArrowRight')) return 'right';
+    if (this.keys.get('ArrowLeft')) return 'left';
+    if (this.keys.get('ArrowDown')) return 'down';
+  };
+
   AnimatedGame.prototype.gameLoop = function () {
     var _this = this;
 
-    var test = new pt_1.Pt(20, 16);
-    var _test = '';
-    this.props.level.forEach(function (v, x, y) {
-      if (x === 0 && y !== 0) _test += '\n';
-      _test += v;
-    });
-    console.log(_test);
-    console.log('YAAAA', this.props.level.getV(test.x, test.y + 3));
     var prevDelta = 0;
 
     var loop = function loop(delta) {
-      var ctx = _this.ctx;
+      var _a = _this,
+          ctx = _a.ctx,
+          game = _a.game;
       if (!ctx) return;
       var dt = delta - prevDelta;
       prevDelta = delta;
+      game.tick(dt, _this.getPlayerInputDir());
+      ctx.clearRect(0, 0, _this.canvasPixels.x * 10, _this.canvasPixels.y * 10);
 
-      _this.ghosts.forEach(function (g) {
-        return g.tick(dt);
-      });
+      _this.drawPacMan(game.pacman);
 
-      ctx.clearRect(0, 0, 400, 400);
-
-      _this.drawPacMan(_this.pacman.dir.getAngle(), _this.pacman.pos.scale(10).addY(4), 0.05);
-
-      _this.ghosts.forEach(function (g) {
+      game.ghosts.forEach(function (g) {
         return _this.drawGhost(g);
       });
 
@@ -1139,10 +1263,13 @@ function (_super) {
     requestAnimationFrame(loop);
   };
 
-  AnimatedGame.prototype.drawPacMan = function (angle, pos, mouthOpenPerc) {
+  AnimatedGame.prototype.drawPacMan = function (pacman) {
     var ctx = this.ctx;
     if (!ctx) return;
-    var size = 4;
+    var size = 8;
+    var pos = pacman.pos.add(1.5, 1.4).scale(10);
+    var mouthOpenPerc = pacman.mouthOpenPerc;
+    var angle = pacman.dirV.getAngle();
     ctx.translate(pos.x, pos.y);
     ctx.rotate(angle / (180 / Math.PI));
     var bx = mouthOpenPerc * Math.PI * 2;
@@ -1183,9 +1310,9 @@ function (_super) {
     var eyeSize = size * 0.15;
     var eyeSizeS = eyeSize * 0.5;
     ctx.fillStyle = 'white';
-    this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dir);
+    this.drawEye(-0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
     ctx.fillStyle = 'white';
-    this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dir); // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
+    this.drawEye(0.2 * size, -0.15 * size, eyeSize, ghost.dirV); // this.drawEllipse(0.2 * size, -0.15 * size, eyeSize, eyeSize);
 
     ctx.resetTransform();
   };

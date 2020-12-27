@@ -59,7 +59,7 @@ export const level1 = halfLevel1
     })
     .join('\n');
 
-type Dir = 'up' | 'down' | 'left' | 'right';
+export type Dir = 'up' | 'down' | 'left' | 'right';
 type Vel =  { dir: Dir, amount: number };
 type Straddle =
     | { isRail: true, from?: never, to?: never }
@@ -159,10 +159,9 @@ export class Level {
         return p.round();
     }
 
-    nearARailPoint(p: Pt): boolean {
+    nearARailPoint(p: Pt, maxD: number = 0.08): boolean {
         const xD = Math.abs(p.x - Math.round(p.x));
         const yD = Math.abs(p.y - Math.round(p.y));
-        const maxD = 0.08;
         if (xD > maxD || yD > maxD) return false;
         return true;
     }
@@ -176,7 +175,22 @@ export class Level {
     }
 
     isSafePosition(p: Pt) {
-        return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+        return this.onRail(p);
+        // return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+    }
+
+    onRail(p: Pt) {
+        if (this.isRailPoint(p) && this.isPathP(p)) return true; 
+        if (p.y % 1 === 0) { // left/right
+            const fx = Math.floor(p.x);
+            const cx = Math.ceil(p.x);
+            if (this.isPath(fx, p.y) && this.isPath(cx, p.y)) return true;
+            return false;
+        }
+        const fy = Math.floor(p.y);
+        const cy = Math.ceil(p.y);
+        if (this.isPath(p.x, fy) && this.isPath(p.x, cy)) return true;
+        return false;
     }
 
     surroundingPaths(pIn: Pt) {
@@ -255,6 +269,8 @@ export class Level {
     getRailMoveVec(p: Pt, moveVec: Pt): Pt | undefined {
         // if moving is safe -> return vec
         if (this.isSafePosition(p.addP(moveVec))) return moveVec;
+
+        console.log('more checking2');
         
         const vel = ptToVel(moveVec);
         const straddlePos = this.getStraddlePositions(p, vel.dir);
@@ -264,6 +280,7 @@ export class Level {
             return undefined;
         } else {
             // else -> fix vec so movemag is equal to dist to next straddle of p
+            console.log('fix', ptToVel(moveVec).dir, moveVec);
             const newSafePos = straddlePos.to;
             if (this.isSafePosition(newSafePos)) {
                 return newSafePos.subP(p);
@@ -274,18 +291,41 @@ export class Level {
 
     getSafeMove(p: Pt, moveVec: Pt): { safe: false } | { safe: true, newPos: Pt } {
         const to = p.addP(moveVec);
-        if (this.isSafePosition(to)) return { safe: true, newPos: to };
-        const modifiedMove = this.getRailMoveVec(p, moveVec);
-        if (modifiedMove) {
-            return { safe: true, newPos: p.addP(modifiedMove) };
+        if (this.onRail(to)) return { safe: true, newPos: to };
+
+        const cp = p.copy();
+
+        let modTo: Pt;
+        switch (ptToVel(moveVec).dir) {
+            case 'left':
+                cp.y = Math.round(cp.y);
+                cp.x += moveVec.x;
+                break;
+            case 'right':
+                cp.y = Math.round(cp.y);
+                cp.x += moveVec.x;
+                break;
+            case 'up':
+                cp.x = Math.round(cp.x);
+                cp.y += moveVec.y;
+                break;
+            case 'down':
+                cp.x = Math.round(cp.x);
+                cp.y += moveVec.y;
+                break;
         }
+
+        if (this.onRail(cp)) return { safe: true, newPos: cp };
+
         return { safe: false };
     }
 
 }
 
 export class Agent {
-    constructor(public pos: Pt, public dir: Pt, public level: Level) {
+    minMoveDist = 0.1;
+    maxMoveDist = 0.1;
+    constructor(public pos: Pt, public dir: Dir, public level: Level) {
     }
 
     getClosestRailPoint() {
@@ -295,35 +335,91 @@ export class Agent {
     nearARailPoint(): boolean {
         return this.level.nearARailPoint(this.pos);
     }
+
+    get dirV() {
+        return dirToPt(this.dir);
+    }
+
+    getMoveVec(dt: number) {
+        const dirV = this.dirV.scale(dt * 0.005);
+        if (this.dir === 'right' || this.dir === 'left') {
+            return new Pt(
+                signedClamp(dirV.x, this.minMoveDist, this.maxMoveDist),
+                dirV.y,
+            );
+        }
+        return new Pt(
+            dirV.x,
+            signedClamp(dirV.y, this.minMoveDist, this.maxMoveDist),
+        );
+    }
+
+    railGuide() {
+        switch (this.dir) {
+            case 'left':
+            case 'right':
+                this.pos.y = Math.round(this.pos.y);
+                break;
+            case 'down':
+            case 'up':
+                this.pos.x = Math.round(this.pos.x);
+        }
+    }
 }
 
 export class Pacman extends Agent {
     mouthOpenPerc: number = 0;
+    internalTick: number = 0;
 
-    constructor(pos: Pt, dir: Pt, level: Level) {
+    constructor(pos: Pt, dir: Dir, level: Level) {
         super(pos, dir, level);
     }
 
     static create(lvl: Level) {
         return new Pacman(
             lvl.getLocationsOfChar('p').pop(),
-            new Pt(1, 0),
+            'right',
             lvl,
         );
+    }
+
+    tick(dt: number, playerInput?: Dir) {
+        this.internalTick += dt;
+        this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.005)) * 0.1;
+        this.railGuide();
+        
+        if (playerInput) {
+            // this.pos = this.level.getClosestRailPoint(this.pos);
+            // const options = this.level.getDirectionOptions(this.pos);
+            // console.log(options)
+            // if (!options.includes(playerInput)) return;
+            // this.pos = this.pos.round();
+            this.dir = playerInput;
+            // const vel = this.dir.scale(dt * 0.005);
+            const vel = this.getMoveVec(dt);
+            console.log({ vel, dir: this.dir })
+            const outcome = this.level.getSafeMove(this.pos, vel)
+            if (outcome.safe) {
+                // this.pos = this.pos.addP(vel);
+                this.pos = outcome.newPos;
+            } else {
+                // this.pos = this.pos.round();
+            }
+        }
+
     }
 }
 
 export class Ghost extends Agent {
     lastGate?: Pt; // the last rail point the ghost made a decision to move from
-    constructor(pos: Pt, dir: Pt, level: Level, public color: string, public scared: boolean) {
+    constructor(pos: Pt, dir: Dir, level: Level, public color: string, public scared: boolean) {
         super(pos, dir, level);
     }
 
     static create(lvl: Level, color: string) {
         return new Ghost(
-            // lvl.getRandomLocationOfChar('g'),
             new Pt(22, 19),
-            new Pt(1, 0),
+            'right',
             lvl,
             color,
             false,
@@ -337,6 +433,7 @@ export class Ghost extends Agent {
     }
 
     tick(dt: number) {
+        this.railGuide();
         if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
         if (((this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere()) && (!this.level.onALinearPath(this.pos)))) {
             // const shouldChange = Math.random() < 0.6;
@@ -345,13 +442,14 @@ export class Ghost extends Agent {
                 const options = this.level.getDirectionOptions(this.pos);
                 if (options.length) {
                     const randomDir = options[Math.floor(Math.random() * options.length)];
-                    this.dir = dirToPt(randomDir);
+                    this.dir = randomDir;
                     this.lastGate = this.level.getClosestRailPoint(this.pos).round();
                 }
             }
 
         }
-        const vel = this.dir.scale(dt * 0.005);
+
+        const vel = this.dirV.scale(dt * 0.005);
         const outcome = this.level.getSafeMove(this.pos, vel)
         if (outcome.safe) {
             this.pos = outcome.newPos;
@@ -363,4 +461,29 @@ export class Ghost extends Agent {
 
 }
 
-export class Game {}
+export class Game {
+    pacman: Pacman;
+    ghosts: Ghost[];
+    constructor(public level: Level) {
+        this.pacman = Pacman.create(level);
+        this.ghosts = [
+            Ghost.create(level, 'red'),
+            Ghost.create(level, 'blue'),
+            Ghost.create(level, 'yellow'),
+            Ghost.create(level, 'purple'),
+        ];
+    }
+
+    tick(dt, playerInput?: Dir) {
+        this.pacman.tick(dt, playerInput);
+        this.ghosts.forEach(g => g.tick(dt));
+    }
+}
+
+function signedClamp(x: number, min: number, max: number): number {
+    const neg = x < 0;
+    let v = x;
+    if (neg) v = -x;
+    const out = Math.max(Math.min(v, max), min);
+    return neg ? -out : out;
+}
