@@ -558,27 +558,13 @@ exports.level1 = halfLevel1.split('\n').map(function (line) {
   return line + secondHalf;
 }).join('\n');
 
-function ptToVel(p) {
-  var amount = p.mag();
-
+function ptToDir(p) {
   if (p.x) {
-    if (p.x < 0) return {
-      dir: 'left',
-      amount: amount
-    };
-    return {
-      dir: 'right',
-      amount: amount
-    };
+    if (p.x < 0) return 'left';
+    return 'right';
   } else {
-    if (p.y < 0) return {
-      dir: 'up',
-      amount: amount
-    };
-    return {
-      dir: 'down',
-      amount: amount
-    };
+    if (p.y < 0) return 'up';
+    return 'down';
   }
 }
 
@@ -596,26 +582,6 @@ function dirToPt(v) {
     case 'right':
       return new pt_1.Pt(1, 0);
   }
-}
-
-function oppositeDir(v) {
-  switch (v) {
-    case 'up':
-      return 'down';
-
-    case 'down':
-      return 'up';
-
-    case 'left':
-      return 'right';
-
-    case 'right':
-      return 'left';
-  }
-}
-
-function velToPt(v) {
-  return dirToPt(v.dir).scale(v.amount);
 }
 
 var Level =
@@ -658,12 +624,6 @@ function () {
     return out;
   };
 
-  Level.prototype.getRandomLocationOfChar = function (ch) {
-    var locations = this.getLocationsOfChar(ch);
-    var index = Math.floor(Math.random() * locations.length);
-    return locations[index];
-  };
-
   Level.prototype.forEach = function (f) {
     for (var y = 0; y < this.h; y++) {
       for (var x = 0; x < this.w; x++) {
@@ -687,16 +647,12 @@ function () {
     return true;
   };
 
-  Level.prototype.isLegalPosition = function (p) {
-    return p.x % 1 === 0 || p.y % 1 === 0;
-  };
-
   Level.prototype.isRailPoint = function (p) {
     return p.x % 1 === 0 && p.y % 1 === 0;
   };
 
   Level.prototype.isSafePosition = function (p) {
-    return this.onRail(p); // return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
+    return this.onRail(p);
   };
 
   Level.prototype.onRail = function (p) {
@@ -748,66 +704,6 @@ function () {
     });
   };
 
-  Level.prototype.getStraddlePositions = function (p, dir) {
-    if (this.isRailPoint(p)) return {
-      isRail: true
-    };
-
-    switch (dir) {
-      case 'up':
-        return {
-          isRail: false,
-          from: p.ceil(),
-          to: p.floor()
-        };
-
-      case 'down':
-        return {
-          isRail: false,
-          from: p.floor(),
-          to: p.ceil()
-        };
-
-      case 'left':
-        return {
-          isRail: false,
-          from: p.ceil(),
-          to: p.floor()
-        };
-
-      case 'right':
-        return {
-          isRail: false,
-          from: p.floor(),
-          to: p.ceil()
-        };
-    }
-  };
-
-  Level.prototype.getRailMoveVec = function (p, moveVec) {
-    // if moving is safe -> return vec
-    if (this.isSafePosition(p.addP(moveVec))) return moveVec;
-    console.log('more checking2');
-    var vel = ptToVel(moveVec);
-    var straddlePos = this.getStraddlePositions(p, vel.dir);
-
-    if (straddlePos.isRail) {
-      var safeMove = dirToPt(vel.dir);
-      if (this.isSafePosition(p.addP(safeMove))) return safeMove;
-      return undefined;
-    } else {
-      // else -> fix vec so movemag is equal to dist to next straddle of p
-      console.log('fix', ptToVel(moveVec).dir, moveVec);
-      var newSafePos = straddlePos.to;
-
-      if (this.isSafePosition(newSafePos)) {
-        return newSafePos.subP(p);
-      }
-
-      return undefined;
-    }
-  };
-
   Level.prototype.getSafeMove = function (p, moveVec) {
     var to = p.addP(moveVec);
     if (this.onRail(to)) return {
@@ -815,9 +711,8 @@ function () {
       newPos: to
     };
     var cp = p.copy();
-    var modTo;
 
-    switch (ptToVel(moveVec).dir) {
+    switch (ptToDir(moveVec)) {
       case 'left':
         cp.y = Math.round(cp.y);
         cp.x += moveVec.x;
@@ -965,7 +860,7 @@ function (_super) {
 
   Ghost.prototype.lastMovedFromHere = function () {
     if (!this.lastGate) return false;
-    var closestRailPoint = this.level.getClosestRailPoint(this.pos);
+    var closestRailPoint = this.getClosestRailPoint();
     return closestRailPoint.eq(this.lastGate);
   };
 
@@ -1033,23 +928,19 @@ function (_super) {
 
     if (seePacman) {
       this.dir = seePacman;
-      speed = 1.2;
       this.railGuide();
+      speed = 1.2;
     } else {
-      if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
+      var nearRailPoint = this.nearARailPoint();
+      if (nearRailPoint) this.pos = this.getClosestRailPoint();
 
-      if (this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
-        // const shouldChange = Math.random() < 0.6;
-        if (true) {
-          this.pos = this.level.getClosestRailPoint(this.pos);
-          var options = this.level.getDirectionOptions(this.pos);
+      if (nearRailPoint && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
+        var randomDir = pickRandom(this.level.getDirectionOptions(this.pos));
 
-          if (options.length) {
-            var randomDir = options[Math.floor(Math.random() * options.length)];
-            this.dir = randomDir;
-            this.railGuide();
-            this.lastGate = this.level.getClosestRailPoint(this.pos).round();
-          }
+        if (randomDir) {
+          this.dir = randomDir;
+          this.railGuide();
+          this.lastGate = this.pos.round();
         }
       }
     }
@@ -1098,6 +989,11 @@ function signedClamp(x, min, max) {
   if (neg) v = -x;
   var out = Math.max(Math.min(v, max), min);
   return neg ? -out : out;
+}
+
+function pickRandom(arr) {
+  if (arr.length === 0) return;
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 },{"./pt":"pacman/pt.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";

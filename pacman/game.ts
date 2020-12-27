@@ -60,19 +60,13 @@ export const level1 = halfLevel1
     .join('\n');
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
-type Vel =  { dir: Dir, amount: number };
-type Straddle =
-    | { isRail: true, from?: never, to?: never }
-    | { isRail: false, from: Pt, to: Pt };
-
-function ptToVel(p: Pt): Vel {
-    const amount = p.mag();
+function ptToDir(p: Pt): Dir {
     if (p.x) {
-        if (p.x < 0) return { dir: 'left', amount };
-        return { dir: 'right', amount };
+        if (p.x < 0) return 'left';
+        return 'right';
     } else {
-        if (p.y < 0) return { dir: 'up', amount };
-        return { dir: 'down', amount };
+        if (p.y < 0) return 'up';
+        return 'down';
     }
 }
 
@@ -84,20 +78,6 @@ function dirToPt(v: Dir): Pt {
         case 'right': return new Pt(1, 0);
     }
 }
-
-function oppositeDir(v: Dir): Dir {
-    switch (v) {
-        case 'up': return 'down';
-        case 'down': return 'up';
-        case 'left': return 'right';
-        case 'right': return 'left';
-    }
-}
-
-function velToPt(v: Vel): Pt {
-    return dirToPt(v.dir).scale(v.amount);
-}
-
 export class Level {
     level: string[][];
     w: number;
@@ -141,12 +121,6 @@ export class Level {
         return out;
     }
 
-    getRandomLocationOfChar(ch: string): Pt {
-        const locations = this.getLocationsOfChar(ch);
-        const index = Math.floor(Math.random() * locations.length);
-        return locations[index];
-    }
-
     forEach(f: (v: string | undefined, x: number, y: number) => void) {
         for (let y = 0; y < this.h; y++) {
             for (let x = 0; x < this.w; x++) {
@@ -166,17 +140,12 @@ export class Level {
         return true;
     }
 
-    isLegalPosition(p: Pt) {
-        return p.x % 1 === 0 || p.y % 1 === 0;
-    }
-
     isRailPoint(p: Pt) {
         return p.x % 1 === 0 && p.y % 1 === 0;
     }
 
     isSafePosition(p: Pt) {
         return this.onRail(p);
-        // return this.isLegalPosition(p) && this.isPathP(p.floor()) && this.isPathP(p.ceil());
     }
 
     onRail(p: Pt) {
@@ -224,67 +193,13 @@ export class Level {
         });
     }
 
-    getStraddlePositions(p: Pt, dir: Dir): Straddle {
-        if (this.isRailPoint(p)) return { isRail: true };
-        switch (dir) {
-            case 'up':
-                return {
-                    isRail: false,
-                    from: p.ceil(),
-                    to: p.floor(),
-                };
-            case 'down':
-                return {
-                    isRail: false,
-                    from: p.floor(),
-                    to: p.ceil(),
-                };
-            case 'left':
-                return {
-                    isRail: false,
-                    from: p.ceil(),
-                    to: p.floor(),
-                };
-            case 'right':
-                return {
-                    isRail: false,
-                    from: p.floor(),
-                    to: p.ceil(),
-                };
-        }
-    }
-
-    getRailMoveVec(p: Pt, moveVec: Pt): Pt | undefined {
-        // if moving is safe -> return vec
-        if (this.isSafePosition(p.addP(moveVec))) return moveVec;
-
-        console.log('more checking2');
-        
-        const vel = ptToVel(moveVec);
-        const straddlePos = this.getStraddlePositions(p, vel.dir);
-        if (straddlePos.isRail) {
-            const safeMove = dirToPt(vel.dir);
-            if (this.isSafePosition(p.addP(safeMove))) return safeMove;
-            return undefined;
-        } else {
-            // else -> fix vec so movemag is equal to dist to next straddle of p
-            console.log('fix', ptToVel(moveVec).dir, moveVec);
-            const newSafePos = straddlePos.to;
-            if (this.isSafePosition(newSafePos)) {
-                return newSafePos.subP(p);
-            }
-            return undefined;
-        }
-    }
-
     getSafeMove(p: Pt, moveVec: Pt): { safe: false } | { safe: true, newPos: Pt } {
         const to = p.addP(moveVec);
         if (this.onRail(to)) return { safe: true, newPos: to };
 
         const cp = p.copy();
 
-        let modTo: Pt;
-        switch (ptToVel(moveVec).dir) {
+        switch (ptToDir(moveVec)) {
             case 'left':
                 cp.y = Math.round(cp.y);
                 cp.x += moveVec.x;
@@ -406,7 +321,7 @@ export class Ghost extends Agent {
 
     lastMovedFromHere() {
         if (!this.lastGate) return false;
-        const closestRailPoint = this.level.getClosestRailPoint(this.pos);
+        const closestRailPoint = this.getClosestRailPoint();
         return closestRailPoint.eq(this.lastGate);
     }
 
@@ -462,24 +377,19 @@ export class Ghost extends Agent {
         let speed = 1;
         if (seePacman) {
             this.dir = seePacman;
-            speed = 1.2;
             this.railGuide();
-            
+            speed = 1.2;
         } else {
-            if (this.level.nearARailPoint(this.pos)) this.pos = this.level.getClosestRailPoint(this.pos);
-            if (((this.level.nearARailPoint(this.pos) && !this.lastMovedFromHere()) && (!this.level.onALinearPath(this.pos)))) {
-                // const shouldChange = Math.random() < 0.6;
-                if (true) {
-                    this.pos = this.level.getClosestRailPoint(this.pos);
-                    const options = this.level.getDirectionOptions(this.pos);
-                    if (options.length) {
-                        const randomDir = options[Math.floor(Math.random() * options.length)];
-                        this.dir = randomDir;
-                        this.railGuide();
-                        this.lastGate = this.level.getClosestRailPoint(this.pos).round();
-                    }
+            const nearRailPoint = this.nearARailPoint();
+            if (nearRailPoint) this.pos = this.getClosestRailPoint();
+
+            if (nearRailPoint && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
+                const randomDir = pickRandom(this.level.getDirectionOptions(this.pos));
+                if (randomDir) {
+                    this.dir = randomDir;
+                    this.railGuide();
+                    this.lastGate = this.pos.round();
                 }
-    
             }
         }
 
@@ -520,4 +430,9 @@ function signedClamp(x: number, min: number, max: number): number {
     if (neg) v = -x;
     const out = Math.max(Math.min(v, max), min);
     return neg ? -out : out;
+}
+
+function pickRandom<T>(arr: T[]): T | undefined {
+    if (arr.length === 0) return;
+    return arr[Math.floor(Math.random() * arr.length)];
 }
