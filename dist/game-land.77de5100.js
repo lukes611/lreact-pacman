@@ -1094,7 +1094,7 @@ function () {
     this.gameState = 'playing';
   };
 
-  Game.prototype.tick = function (dt, playerInput) {
+  Game.prototype.tick = function (dt, playerInput, onGameStateChange) {
     var _this = this;
 
     if (this.gameState !== 'playing') return;
@@ -1105,6 +1105,27 @@ function () {
     this.candy = this.candy.filter(function (c) {
       return c.dist(_this.pacman.pos) > 1;
     });
+
+    if (this.pacmanIsNearGhosts()) {
+      this.gameState = 'game-over';
+      onGameStateChange === null || onGameStateChange === void 0 ? void 0 : onGameStateChange(this.gameState);
+    }
+
+    if (this.getCandyRemaining() <= 0) {
+      this.gameState = 'you-won';
+      onGameStateChange === null || onGameStateChange === void 0 ? void 0 : onGameStateChange(this.gameState);
+    }
+  };
+
+  Game.prototype.pacmanIsNearGhosts = function () {
+    var pacmanPos = this.pacman.pos;
+    return this.ghosts.some(function (g) {
+      return g.pos.dist(pacmanPos) < 1;
+    });
+  };
+
+  Game.prototype.getCandyRemaining = function () {
+    return this.candy.length;
   };
 
   return Game;
@@ -1555,6 +1576,26 @@ function (_super) {
       });
     };
 
+    _this.pause = function () {
+      _this.setGameState('paused');
+    };
+
+    _this.unpause = function () {
+      _this.setGameState('playing');
+    };
+
+    _this.restartGame = function () {
+      _this.setGameState('not-started');
+    };
+
+    _this.setGameState = function (s) {
+      _this.game.gameState = s;
+
+      _this.setState({
+        state: s
+      });
+    };
+
     _this.level = game_1.Level.createLevel1();
     _this.game = new game_1.Game(_this.level);
     _this.state = {
@@ -1574,22 +1615,27 @@ function (_super) {
     var _a = this.gameRenderScaleAndSize,
         gameRenderScale = _a.gameRenderScale,
         size = _a.size;
-    return Node('div', {}, [Text(this.state.state), Node(LevelGameContainer, size, [Node(RenderedLevel, {
+    return Node('div', {}, [Node('div', {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: size.w + "px",
+        margin: 'auto auto'
+      }
+    }, [Node(LiveGameScore, {
+      g: this.game
+    }), Node('button', {
+      onClick: function onClick() {
+        _this.game.gameState = 'paused';
+
+        _this.setState({
+          state: 'paused'
+        });
+      }
+    }, [Text('pause')])]), Node(LevelGameContainer, size, [Node(RenderedLevel, {
       level: this.level,
       N: gameRenderScale
-    }), this.renderGameState()]), Node('button', {
-      onClick: function onClick() {
-        if (_this.state.state === 'not-started') {
-          _this.setState({
-            state: 'paused'
-          });
-        } else {
-          _this.setState({
-            state: 'not-started'
-          });
-        }
-      }
-    }, [Text('stop')]), useMobileControls ? Node(game_controls_1.ButtonControls, {
+    }), this.renderGameState()]), useMobileControls ? Node(game_controls_1.ButtonControls, {
       controller: this.controller
     }) : Node(game_controls_1.KeyboardInstructions)]);
   };
@@ -1619,6 +1665,8 @@ function (_super) {
   });
 
   GameComponent.prototype.renderGameState = function () {
+    var _this = this;
+
     var gameRenderScale = this.gameRenderScaleAndSize.gameRenderScale;
 
     switch (this.game.gameState) {
@@ -1626,7 +1674,12 @@ function (_super) {
         return Node(AnimatedGame, {
           game: this.game,
           gameRenderScale: gameRenderScale,
-          controller: this.controller
+          controller: this.controller,
+          onGameStateChange: function onGameStateChange(s) {
+            return _this.setState({
+              state: s
+            });
+          }
         }, []);
 
       case 'not-started':
@@ -1635,13 +1688,25 @@ function (_super) {
         })]);
 
       case 'game-over':
-        return Node('div', {}, [Text('you lost')]);
+        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+          restart: this.restartGame,
+          message: 'Oh, sorry you lost 😭',
+          buttonText: 'Play Again'
+        })]);
 
       case 'you-won':
-        return Node('div', {}, [Text('you won')]);
+        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+          restart: this.restartGame,
+          message: 'You Won!! 🎉',
+          buttonText: 'Play Again'
+        })]);
 
       case 'paused':
-        return Node('button', {}, [Text('unpause game')]);
+        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+          restart: this.unpause,
+          message: 'paused',
+          buttonText: 'back'
+        })]);
     }
   };
 
@@ -1649,6 +1714,46 @@ function (_super) {
 }(LReact.Component);
 
 exports.GameComponent = GameComponent;
+
+var LiveGameScore =
+/** @class */
+function (_super) {
+  __extends(LiveGameScore, _super);
+
+  function LiveGameScore(props) {
+    var _this = _super.call(this, props) || this;
+
+    _this.componentDidMount = function () {
+      _this.intervalId = setInterval(_this.maybeUpdateScore, 30);
+    };
+
+    _this.componentDidUnmount = function () {
+      if (_this.intervalId != null) clearInterval(_this.intervalId);
+      _this.intervalId = undefined;
+    };
+
+    _this.maybeUpdateScore = function () {
+      var newScore = _this.props.g.getCandyRemaining();
+
+      if (newScore !== _this.state.score) {
+        _this.setState({
+          score: newScore
+        });
+      }
+    };
+
+    _this.state = {
+      score: props.g.getCandyRemaining()
+    };
+    return _this;
+  }
+
+  LiveGameScore.prototype.render = function () {
+    return Node('div', {}, [Text('score: ' + this.state.score)]);
+  };
+
+  return LiveGameScore;
+}(LReact.Component);
 
 var AnimatedGame =
 /** @class */
@@ -1671,8 +1776,9 @@ function (_super) {
 
       _this.props.controller.reset();
 
-      if (_this.animId) {
-        cancelAnimationFrame(_this.animId.id);
+      if (_this.animationRequest !== undefined) {
+        cancelAnimationFrame(_this.animationRequest);
+        _this.animationRequest = undefined;
       }
     };
 
@@ -1746,7 +1852,7 @@ function (_super) {
       if (!ctx) return;
       var dt = delta - prevDelta;
       prevDelta = delta;
-      game.tick(dt, _this.getPlayerInputDir());
+      game.tick(dt, _this.getPlayerInputDir(), _this.props.onGameStateChange);
       var canvasSize = _this.canvasSize;
       ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
       ctx.translate(-N * 0.6, -N * 0.6);
@@ -1760,14 +1866,10 @@ function (_super) {
         return render_1.drawGhost(ctx, g, N);
       });
       ctx.resetTransform();
-      _this.animId = {
-        id: requestAnimationFrame(loop)
-      };
+      if (_this.animationRequest !== undefined) _this.animationRequest = requestAnimationFrame(loop);
     };
 
-    this.animId = {
-      id: requestAnimationFrame(loop)
-    };
+    this.animationRequest = requestAnimationFrame(loop);
   };
 
   return AnimatedGame;
@@ -1846,17 +1948,53 @@ var StartGameMenu = function StartGameMenu(_a) {
     d: 'medium'
   }), Node(CheckBox, {
     d: 'hard'
-  })]), Node('button', {
+  })]), Node(BigButton, {
+    onClick: function onClick() {
+      return startGame(difficulty);
+    },
+    label: 'Play'
+  })]);
+};
+
+var GameOverMenu = function GameOverMenu(_a) {
+  var restart = _a.restart,
+      message = _a.message,
+      buttonText = _a.buttonText;
+  return Node('div', {
+    style: {
+      background: 'rgba(0,0,0,0.5)',
+      width: '100%',
+      height: '100%',
+      display: 'grid',
+      gridTemplateRows: 'min-content min-content',
+      alignContent: 'center',
+      justifyContent: 'center',
+      gridGap: '16px'
+    }
+  }, [Node('div', {
+    style: {
+      textAlign: 'center',
+      color: 'orange',
+      fontSize: '30px'
+    }
+  }, [Text(message)]), Node(BigButton, {
+    onClick: restart,
+    label: buttonText
+  })]);
+};
+
+var BigButton = function BigButton(_a) {
+  var label = _a.label,
+      onClick = _a.onClick;
+  return Node('button', {
     style: {
       fontSize: '40px',
       width: '100%',
       maxWidth: '250px',
       cursor: 'pointer'
     },
-    onClick: function onClick() {
-      return startGame(difficulty);
-    }
-  }, [Text('Play')])]);
+    onClick: onClick
+  }, [Text(label)]);
 };
 
 var LevelGameContainer = function LevelGameContainer(_a) {

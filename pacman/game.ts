@@ -376,8 +376,6 @@ export class Ghost extends Agent {
             this.pos = this.pos.round();
         }
     }
-
-
 }
 
 export type GameState =
@@ -434,13 +432,32 @@ export class Game {
         this.gameState = 'playing';
     }
 
-    tick(dt: number, playerInput?: Dir) {
+    tick(dt: number, playerInput?: Dir, onGameStateChange?: (s: GameState) => void) {
         if (this.gameState !== 'playing') return;
         this.pacman.tick(dt, playerInput);
         this.ghosts.forEach(g => g.tick(dt, this.pacman.pos));
         this.candy = this.candy.filter(c => {
             return c.dist(this.pacman.pos) > 1;
         })
+
+        if (this.pacmanIsNearGhosts()) {
+            this.gameState = 'game-over';
+            onGameStateChange?.(this.gameState);
+        }
+
+        if (this.getCandyRemaining() <= 0) {
+            this.gameState = 'you-won';
+            onGameStateChange?.(this.gameState);
+        }
+    }
+
+    pacmanIsNearGhosts() {
+        const pacmanPos = this.pacman.pos;
+        return this.ghosts.some(g => g.pos.dist(pacmanPos) < 1);
+    }
+
+    getCandyRemaining() {
+        return this.candy.length;
     }
 }
 

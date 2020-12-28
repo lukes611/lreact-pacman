@@ -44,7 +44,7 @@ export function Text(v: string) {
     return new VElem('text-node', {}, [], v);
 }
 
-export abstract class Component<Props extends object, State extends object> {
+export abstract class Component<Props extends object = {}, State extends object = {}> {
     props: Props;
     state?: State;
 

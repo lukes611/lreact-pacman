@@ -42,20 +42,26 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const { gameRenderScale, size } = this.gameRenderScaleAndSize;
 
         return Node('div', {}, [
-            Text(this.state.state),
+            Node('div', {
+                style: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    width: `${size.w}px`,
+                    margin: 'auto auto',
+                },
+            }, [
+                Node(LiveGameScore, { g: this.game }),
+                Node('button', {
+                    onClick: () => {
+                        this.game.gameState = 'paused';
+                        this.setState({ state: 'paused' });
+                    },
+                }, [Text('pause')]),
+            ]),
             Node(LevelGameContainer, size, [
                 Node(RenderedLevel, { level: this.level, N: gameRenderScale }),
                 this.renderGameState(),
             ]),
-            Node('button', {
-                onClick: () => {
-                    if (this.state.state === 'not-started') {
-                        this.setState({ state: 'paused' });
-                    } else {
-                        this.setState({ state: 'not-started' });
-                    }
-                },
-            }, [Text('stop')]),
             useMobileControls ? Node(ButtonControls, { controller: this.controller }) : Node(KeyboardInstructions),
         ]);
     }
@@ -84,7 +90,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const { gameRenderScale } = this.gameRenderScaleAndSize;
         switch (this.game.gameState) {
             case 'playing':
-                return Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller }, []);
+                return Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller, onGameStateChange: s => this.setState({ state: s }) }, []);
             case 'not-started':
                 return Node(MenuOverlay, {}, [
                     Node(StartGameMenu, {
@@ -92,12 +98,68 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     }),
                 ]);
             case 'game-over':
-                return Node('div', {}, [Text('you lost')]);
+                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                    restart: this.restartGame,
+                    message: 'Oh, sorry you lost 😭',
+                    buttonText: 'Play Again',
+                })]);
             case 'you-won':
-                return Node('div', {}, [Text('you won')]);
+                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                    restart: this.restartGame,
+                    message: 'You Won!! 🎉',
+                    buttonText: 'Play Again',
+                })]);
             case 'paused':
-                return Node('button', {}, [Text('unpause game')]);
+                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                    restart: this.unpause,
+                    message: 'paused',
+                    buttonText: 'back',
+                })]);
         }
+    }
+
+    pause = () => {
+        this.setGameState('paused');
+    };
+
+    unpause = () => {
+        this.setGameState('playing');
+    };
+
+    restartGame = () => {
+        this.setGameState('not-started');
+    };
+
+    setGameState = (s: GameState) => {
+        this.game.gameState = s;
+        this.setState({ state: s });
+    };
+}
+
+class LiveGameScore extends LReact.Component<{ g: Game }, { score: number }> {
+    intervalId?: number;
+    constructor(props: { g: Game }) {
+        super(props);
+        this.state = {
+            score: props.g.getCandyRemaining(),
+        };
+        
+    }
+    componentDidMount = () => {
+        this.intervalId = setInterval(this.maybeUpdateScore, 30);
+    };
+    componentDidUnmount = () => {
+        if (this.intervalId != null) clearInterval(this.intervalId);
+        this.intervalId = undefined;
+    };
+    maybeUpdateScore = () => {
+        const newScore = this.props.g.getCandyRemaining();
+        if (newScore !== this.state.score) {
+            this.setState({ score: newScore });
+        }
+    };
+    render() {
+        return Node('div', {}, [Text('score: ' + this.state.score)]);
     }
 }
 
@@ -105,11 +167,12 @@ type AnimatedGameProps = {
     game: Game,
     gameRenderScale: number,
     controller: Controller,
+    onGameStateChange: (s: GameState) => void,
 };
 class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     ctx?: CanvasRenderingContext2D;
     canvasPixels: Pt;
-    animId?: { id: number };
+    animationRequest?: number;
     killEventListeners?: () => void;
     constructor(props: AnimatedGameProps) {
         super(props);
@@ -124,8 +187,9 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     componentDidUnmount = () => {
         this.killEventListeners?.();
         this.props.controller.reset();
-        if (this.animId) {
-            cancelAnimationFrame(this.animId.id);
+        if (this.animationRequest !== undefined) {
+            cancelAnimationFrame(this.animationRequest);
+            this.animationRequest = undefined;
         }
     };
 
@@ -182,7 +246,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
             if (!ctx) return;
             const dt = delta - prevDelta;
             prevDelta = delta;
-            game.tick(dt, this.getPlayerInputDir());
+            game.tick(dt, this.getPlayerInputDir(), this.props.onGameStateChange);
             const canvasSize = this.canvasSize;
             ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
             ctx.translate(-N * 0.6, -N * 0.6);
@@ -198,9 +262,10 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
 
             ctx.resetTransform();
 
-            this.animId = { id: requestAnimationFrame(loop) };
+            if (this.animationRequest !== undefined)
+                this.animationRequest = requestAnimationFrame(loop);
         }
-        this.animId = { id: requestAnimationFrame(loop) };
+        this.animationRequest = requestAnimationFrame(loop);
     }
 }
 
@@ -283,16 +348,64 @@ const StartGameMenu = ({
             Node(CheckBox, { d: 'medium'  }),
             Node(CheckBox, { d: 'hard'  }),
         ]),
-        Node('button', {
-            style: {
-                fontSize: '40px',
-                width: '100%',
-                maxWidth: '250px',
-                cursor: 'pointer',
-            },
+        Node(BigButton, {
             onClick: () => startGame(difficulty),
-        }, [Text('Play')]),
+            label: 'Play',
+        }),
     ]);
+};
+
+const GameOverMenu = ({
+    restart,
+    message,
+    buttonText,
+}: {
+    restart(): void,
+    message: string,
+    buttonText: string,
+}) => {
+    return Node('div', {
+        style: {
+            background: 'rgba(0,0,0,0.5)',
+            width: '100%',
+            height: '100%',
+            display: 'grid',
+            gridTemplateRows: 'min-content min-content',
+            alignContent: 'center',
+            justifyContent: 'center',
+            gridGap: '16px',
+        },
+    }, [
+        Node('div', {
+            style: {
+                textAlign: 'center',
+                color: 'orange',
+                fontSize: '30px',
+            },
+        }, [Text(message)]),
+        Node(BigButton, {
+            onClick: restart,
+            label: buttonText,
+        }),
+    ]);
+};
+
+const BigButton = ({
+    label,
+    onClick,
+}: {
+    label: string
+    onClick: () => void,
+}) => {
+    return Node('button', {
+        style: {
+            fontSize: '40px',
+            width: '100%',
+            maxWidth: '250px',
+            cursor: 'pointer',
+        },
+        onClick,
+    }, [Text(label)]);
 };
 
 const LevelGameContainer = ({ w, h, children }: {
