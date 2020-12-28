@@ -4,7 +4,7 @@ type ComponentMakerKind =
     | { kind: 'html', type: string }
     | { kind: 'string', value: string };
 
-class _Element {
+export class _Element {
     _name?: string;
     _parent?: _Element;
     _elem?: HTMLElement | Text;
@@ -13,23 +13,21 @@ class _Element {
     _c?: Component<any, any>;
     _useStateSys?: UseStateSystem<any>;
 
-    constructor(public maker: ComponentMakerKind, public props: object, public children: _Element[]) {
+    constructor(public maker: ComponentMakerKind, public props: Record<string, any>, public children: _Element[]) {
         if (this.maker.kind === 'c') this._name = this.maker.c.constructor.name;
     }
 
     createElement() {
         switch (this.maker.kind) {
             case 'c': {
-                this._c = new this.maker.c(this.props);
+                this._c = this._c ?? new this.maker.c(this.props);
                 this._c.paint = () => repaint2(this);
                 this._velem = this._c?.render();
             }; break;
             case 'f': {
                 currentUseStateSystem.takeout();
                 this._velem = this.maker.f(this.props);
-                console.log({currentUseStateSystem})
                 const useStateSys = currentUseStateSystem.get();
-                console.log({ gotIt: useStateSys});
                 if (useStateSys) {
                     const sys = useStateSys;
                     this._useStateSys = sys;
@@ -73,13 +71,17 @@ export function Element<P extends object, S extends object>(type: MakerType<P, S
         if (typeof ch === 'string') return new _Element({ kind: 'string', value: ch }, {}, []);
         return ch;
     }).filter(x => x != null);
+    const fixedProps = {
+        ...props,
+        children: properChildren,
+    };
     if (typeof type === 'function') {
         if (isAComponentClass(type)) {
-            return new _Element({ kind: 'c', c: type as any }, props, properChildren);
+            return new _Element({ kind: 'c', c: type as any }, fixedProps, properChildren);
         }
-        return new _Element({ kind: 'f', f: type as any }, props, properChildren);
+        return new _Element({ kind: 'f', f: type as any }, fixedProps, properChildren);
     } else if (typeof type === 'string') {
-        return new _Element({ kind: 'html', type }, props, properChildren);
+        return new _Element({ kind: 'html', type }, fixedProps, properChildren);
     }
 }
 export class VElem {
@@ -472,18 +474,28 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
     const { props, children, maker } = tree;
     tree._dom = parentDOM;
 
-    if (prevTree && prevTree.similar(tree)) {
-        console.log('just replace attrbutes?', tree.maker);
+    if (prevTree && prevTree.similar(tree) && false) {
         if (prevTree._elem && tree.maker.kind === 'html') {
             tree._elem = prevTree._elem;
             assignProps(tree._elem as HTMLElement, props);
             tree.children.forEach((ch, i) => {
                 modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
             });
-        } else if (prevTree._velem) {
-            tree._velem = prevTree._velem;
-        }
-        return;
+            return;
+        } 
+        else if (prevTree._velem) {
+            // console.log('just replace attrbutes?', tree.maker);
+            // tree._velem = prevTree._velem;
+            tree._c = prevTree._c;
+            tree._useStateSys = prevTree._useStateSys;
+            tree.createElement();
+            modifyTree2(tree._velem, tree, parentDOM, prevTree._velem);
+
+            // tree.children.forEach((ch, i) => {
+            //     modifyTree2(ch, tree, parentDOM, prevTree.children[i]);
+            // });
+            return;
+        } else return;
     }
 
     // must re-write
@@ -494,6 +506,9 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             unmountAll(prevTree);
         } else {
             parentDOM.appendChild(tree._elem);
+        }
+        if (tree.props.ref) {
+            tree.props.ref(tree._elem);
         }
         if (maker.kind === 'html') {
             assignProps(tree._elem as HTMLElement, props);

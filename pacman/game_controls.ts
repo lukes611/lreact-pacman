@@ -1,4 +1,4 @@
-import * as LReact from '../l_react';
+import * as LReact from '../l_react2';
 import { Dir, DIRECTIONS } from './game';
 
 export class Controller {
@@ -50,7 +50,7 @@ export const setupKeyboardControls = (controller: Controller) => {
 };
 
 export const KeyboardInstructions = () => {
-    return LReact.Node('div', {
+    return LReact.Element('div', {
         style: {
             fontSize: '24px',
             display: 'grid',
@@ -59,9 +59,9 @@ export const KeyboardInstructions = () => {
             textAlign: 'center',
         },
     }, [
-        LReact.Text(`
+        `
             You can use the up, down, left and right arrow keys to move pacman.
-        `),
+        `,
     ]);
 };
 
@@ -71,7 +71,7 @@ type ButtonControlsProps = {
 
 const BUTTON_SIZE = 70;
 
-const BlankDiv = () => LReact.Node('div');
+const BlankDiv = () => LReact.Element('div');
 
 export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
     dirToEmoji = new Map<Dir, string>([
@@ -80,11 +80,12 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
         ['right', '➡️'],
         ['down', '⬇️'],
     ]);
+
     render() {
         const controller = this.props.controller;
         const directionsList = Array.from(this.dirToEmoji.keys());
-        const buttons = directionsList.map((d: Dir): LReact.VElem => {
-            return LReact.Node('button', {
+        const buttons = directionsList.map((d: Dir): LReact._Element => {
+            return LReact.Element('button', {
                 onTouchStart: (e) => {
                     controller.setV(d, true);
                     e.preventDefault();
@@ -107,10 +108,10 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
                     margin: '0',
                     overflow: 'hidden',
                 },
-            }, [LReact.Text(this.dirToEmoji.get(d) ?? d)]);
+            }, [this.dirToEmoji.get(d) ?? d]);
         });
 
-        return LReact.Node('div', {
+        return LReact.Element('div', {
             style: {
                 width: `100%`,
                 height: `${BUTTON_SIZE * 3}px`,
@@ -122,17 +123,17 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
                 gridTemplateColumns: `repeat(3, ${BUTTON_SIZE}px)`,
             },
         }, [
-            LReact.Node(BlankDiv),
+            LReact.Element(BlankDiv),
             buttons[0],
-            LReact.Node(BlankDiv),
+            LReact.Element(BlankDiv),
 
             buttons[1],
-            LReact.Node(BlankDiv),
+            LReact.Element(BlankDiv),
             buttons[2],
 
-            LReact.Node(BlankDiv),
+            LReact.Element(BlankDiv),
             buttons[3],
-            LReact.Node(BlankDiv),
+            LReact.Element(BlankDiv),
         ]);
     }
 }

@@ -1,8 +1,8 @@
-import * as LReact from '../l_react';
+import * as LReact from '../l_react2';
 import { Level, Game, Dir, DIRECTIONS, GameState, Difficulty } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
-const { Node, Text } = LReact;
+const { Element } = LReact;
 import {
     Controller,
     setupKeyboardControls,
@@ -62,8 +62,10 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const useMobileControls = this.useMobileControls;
         const { gameRenderScale, size } = this.gameRenderScaleAndSize;
 
-        return Node('div', {}, [
-            Node('div', {
+        console.log(gameRenderScale);
+
+        return Element('div', {}, [
+            Element('div', {
                 style: {
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -71,19 +73,19 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     margin: 'auto auto',
                 },
             }, [
-                Node(LiveGameScore, { g: this.game }),
-                Node('button', {
+                Element(LiveGameScore, { g: this.game }),
+                Element('button', {
                     onClick: () => {
                         this.game.gameState = 'paused';
                         this.setState({ state: 'paused' });
                     },
-                }, [Text('pause')]),
+                }, ['pause']),
             ]),
-            Node(LevelGameContainer, size, [
-                Node(RenderedLevel, { level: this.level, N: gameRenderScale }),
+            Element(LevelGameContainer, size, [
+                Element(RenderedLevel, { level: this.level, N: gameRenderScale }),
                 this.renderGameState(),
             ]),
-            useMobileControls ? Node(ButtonControls, { controller: this.controller }) : Node(KeyboardInstructions),
+            useMobileControls ? Element(ButtonControls, { controller: this.controller }) : Element(KeyboardInstructions),
         ]);
     }
 
@@ -111,27 +113,27 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const { gameRenderScale } = this.gameRenderScaleAndSize;
         switch (this.game.gameState) {
             case 'playing':
-                return Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller, onGameStateChange: s => this.setState({ state: s }) }, []);
+                return Element(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller, onGameStateChange: s => this.setState({ state: s }) }, []);
             case 'not-started':
-                return Node(MenuOverlay, {}, [
-                    Node(StartGameMenu, {
+                return Element(MenuOverlay, {}, [
+                    Element(StartGameMenu, {
                         startGame: this.startGame,
                     }),
                 ]);
             case 'game-over':
-                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                return Element(MenuOverlay, {}, [Element(GameOverMenu, {
                     restart: this.restartGame,
                     message: 'Oh, sorry you lost 😭',
                     buttonText: 'Play Again',
                 })]);
             case 'you-won':
-                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                return Element(MenuOverlay, {}, [Element(GameOverMenu, {
                     restart: this.restartGame,
                     message: 'You Won!! 🎉',
                     buttonText: 'Play Again',
                 })]);
             case 'paused':
-                return Node(MenuOverlay, {}, [Node(GameOverMenu, {
+                return Element(MenuOverlay, {}, [Element(GameOverMenu, {
                     restart: this.unpause,
                     message: 'paused',
                     buttonText: 'back',
@@ -180,7 +182,7 @@ class LiveGameScore extends LReact.Component<{ g: Game }, { score: number }> {
         }
     };
     render() {
-        return Node('div', {}, [Text('score: ' + this.state.score)]);
+        return Element('div', {}, ['score: ' + this.state.score]);
     }
 }
 
@@ -229,7 +231,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     render() {
         const { gameRenderScale } = this.props;
         const canvasSize = this.canvasSize;
-        return Node('canvas', {
+        return Element('canvas', {
             ref: this.canvasSet,
             width: canvasSize.w,
             height: canvasSize.h,
@@ -298,9 +300,9 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
 const MenuOverlay = ({
     children,
 }: {
-    children?: LReact.VElem[],
+    children?: LReact._Element[],
 }) => {
-    return Node('div', {
+    return Element('div', {
         style: {
             width: '100%',
             height: '100%',
@@ -323,7 +325,7 @@ const StartGameMenu = ({
     }: {
         d: Difficulty,
     }) => {
-        return Node('div', {
+        return Element('div', {
             style: {
                 display: 'grid',
                 gridAutoFlow: 'column',
@@ -332,12 +334,12 @@ const StartGameMenu = ({
                 gridTemplateColumns: '200px 1fr',
             },
         }, [
-            Node('label', {
+            Element('label', {
                 style: {
                     fontSize: '20px',
                 },
-            }, [Text(d)]),
-            Node('input', {
+            }, [d]),
+            Element('input', {
                 type: 'checkbox',
                 checked: difficulty === d,
                 onChange: e => {
@@ -352,7 +354,7 @@ const StartGameMenu = ({
         ]);
     };
 
-    return Node('div', {
+    return Element('div', {
         style: {
             color: 'orange',
             fontSize: '40px',
@@ -368,13 +370,13 @@ const StartGameMenu = ({
             background: 'rgba(0,0,0,0.5)',
         },
     }, [
-        Text(`start game`),
-        Node('div', { style: { display: 'grid', gridAutoFlow: 'row', gridGap: '8px' } }, [
-            Node(CheckBox, { d: 'easy'  }),
-            Node(CheckBox, { d: 'medium'  }),
-            Node(CheckBox, { d: 'hard'  }),
+        `start game`,
+        Element('div', { style: { display: 'grid', gridAutoFlow: 'row', gridGap: '8px' } }, [
+            Element(CheckBox, { d: 'easy'  }),
+            Element(CheckBox, { d: 'medium'  }),
+            Element(CheckBox, { d: 'hard'  }),
         ]),
-        Node(BigButton, {
+        Element(BigButton, {
             onClick: () => startGame(difficulty),
             label: 'Play',
         }),
@@ -390,7 +392,7 @@ const GameOverMenu = ({
     message: string,
     buttonText: string,
 }) => {
-    return Node('div', {
+    return Element('div', {
         style: {
             background: 'rgba(0,0,0,0.5)',
             width: '100%',
@@ -402,14 +404,14 @@ const GameOverMenu = ({
             gridGap: '16px',
         },
     }, [
-        Node('div', {
+        Element('div', {
             style: {
                 textAlign: 'center',
                 color: 'orange',
                 fontSize: '30px',
             },
-        }, [Text(message)]),
-        Node(BigButton, {
+        }, [message]),
+        Element(BigButton, {
             onClick: restart,
             label: buttonText,
         }),
@@ -423,7 +425,7 @@ const BigButton = ({
     label: string
     onClick: () => void,
 }) => {
-    return Node('button', {
+    return Element('button', {
         style: {
             fontSize: '40px',
             width: '100%',
@@ -431,15 +433,16 @@ const BigButton = ({
             cursor: 'pointer',
         },
         onClick,
-    }, [Text(label)]);
+    }, [label]);
 };
 
 const LevelGameContainer = ({ w, h, children }: {
     w: number,
     h: number,
-    children?: LReact.VElem[],
+    children?: LReact._Element[],
 }) => {
-    return Node('div', {
+    console.log('children', children);
+    return Element('div', {
         style: {
             backgroundColor: 'lightblue',
             display: 'grid',
@@ -448,7 +451,7 @@ const LevelGameContainer = ({ w, h, children }: {
             boxSizing: 'border-box',
         },
     }, [
-        Node('div', {
+        Element('div', {
             style: {
                 width: `${w}px`,
                 height: `${h}px`,
@@ -474,7 +477,7 @@ function RenderedLevel({
             if (level.isPath(x, y)) {
                 const center = new Pt(x + 0.5, y + 0.5);
                 const topLeft = center.add(-halfThick, -halfThick);
-                blocks.push(Node(Block, {
+                blocks.push(Element(Block, {
                     top:  topLeft.y * N + offset.y,
                     left: topLeft.x * N + offset.x,
                     width:  N * thick,
@@ -484,7 +487,7 @@ function RenderedLevel({
             }
         }
     }
-    return Node('div', {}, [
+    return Element('div', {}, [
         ...blocks,
     ]);
 }
@@ -502,7 +505,7 @@ const Block = ({
     width: number,
     height?: number,
 }) => {
-    return Node('div', {
+    return Element('div', {
         style: {
             width: `${width}px`,
             height: `${height ?? width}px`,

@@ -1,5 +1,5 @@
 import * as LReact from './l_react2';
-// import { GameComponent } from './pacman/index';
+import { GameComponent } from './pacman/index';
 const Element = LReact.Element;
 
 
@@ -135,6 +135,7 @@ class Peanut extends LReact.Component<{}, { color: string }> {
             }, ['to green']) : null,
             color === 'green' ? Element(Luke) : null,
             'END',
+            Element(GameComponent),
         ]);
     }
 }
