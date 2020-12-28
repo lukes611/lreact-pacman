@@ -152,7 +152,7 @@ function createVElement<P extends object, S extends object>(node: ComponentType<
         });
         c.paint = x => repaint(x);
         c._vnode = c.render();
-        c._vnode._name = c.constructor.name
+        c._vnode._name = c.constructor.name;
         if (c.componentDidMount) {
             c._vnode.componentDidMount = () => c.componentDidMount();
         }
@@ -220,13 +220,15 @@ function repaintFunctionComponent<P extends object>(c: (props: P) => VElem, useS
 export function Node<P extends object, S extends object>(type: ComponentType<P, S>, props: P = {} as P, children: VElem[] = []) {
     return createVElement(type, props, children);
 }
-
-export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem) {
+//hmm not sure
+export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem, updateDomIsRemount?: boolean) {
     const { props, children, type } = tree;
     if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
         // replace attributes
         const pte = prevTree.getElem()!;
-        if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') assignProps(pte.e, props);
+        if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
+            assignProps(pte.e, props);
+        }
         tree._elem = pte.e;
         tree._parent = prevTree._parent;
 

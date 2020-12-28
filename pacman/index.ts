@@ -18,6 +18,8 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
     level: Level;
     game: Game;
     controller = new Controller();
+    windowResizeListener?: (e: UIEvent) => void;
+    
 
     constructor(props: {}) {
         super(props);
@@ -31,6 +33,25 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
             },
         };
     }
+
+    componentDidMount = () => {
+        this.windowResizeListener = () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            if (w !== this.state.windowSize.w || h !== this.state.windowSize.h) {
+                this.setState({
+                    windowSize: { w, h },
+                });
+            }
+        };
+        window.addEventListener('resize', this.windowResizeListener);
+    };
+    componentDidUnmount = () => {
+        if (this.windowResizeListener) {
+            window.removeEventListener('resize', this.windowResizeListener);
+            this.windowResizeListener = undefined;
+        }
+    };
 
     startGame = (difficulty: Difficulty) => {
         this.game.startNewGame(difficulty);
@@ -176,13 +197,16 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     killEventListeners?: () => void;
     constructor(props: AnimatedGameProps) {
         super(props);
-        this.canvasPixels = new Pt(props.game.level.w, props.game.level.h);
     }
 
     componentDidMount = () => {
         this.gameLoop();
         this.setupEventListeners();
     };
+
+    get canvasPixel() {
+        return new Pt(this.props.game.level.w, this.props.game.level.h);
+    }
 
     componentDidUnmount = () => {
         this.killEventListeners?.();
@@ -204,6 +228,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     render() {
         const { gameRenderScale } = this.props;
         const canvasSize = this.canvasSize;
+        console.log(this.props.gameRenderScale, this);
         return Node('canvas', {
             ref: this.canvasSet,
             width: canvasSize.w,
@@ -239,8 +264,9 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
 
     gameLoop() {
         let prevDelta = 0;
-        const N = this.props.gameRenderScale;
         const loop = (delta: number) => {
+            const N = this.props.gameRenderScale;
+            console.log(N, this);
             const { ctx } = this;
             const { game } = this.props;
             if (!ctx) return;

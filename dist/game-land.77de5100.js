@@ -404,9 +404,9 @@ function Node(type, props, children) {
   return createVElement(type, props, children);
 }
 
-exports.Node = Node;
+exports.Node = Node; //hmm not sure
 
-function modifyTree(tree, parent, prevTree) {
+function modifyTree(tree, parent, prevTree, updateDomIsRemount) {
   var _a, _b;
 
   var props = tree.props,
@@ -416,7 +416,11 @@ function modifyTree(tree, parent, prevTree) {
   if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
     // replace attributes
     var pte = prevTree.getElem();
-    if (!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') assignProps(pte.e, props);
+
+    if (!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
+      assignProps(pte.e, props);
+    }
+
     tree._elem = pte.e;
     tree._parent = prevTree._parent;
 
@@ -1568,6 +1572,31 @@ function (_super) {
 
     _this.controller = new game_controls_1.Controller();
 
+    _this.componentDidMount = function () {
+      _this.windowResizeListener = function () {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+
+        if (w !== _this.state.windowSize.w || h !== _this.state.windowSize.h) {
+          _this.setState({
+            windowSize: {
+              w: w,
+              h: h
+            }
+          });
+        }
+      };
+
+      window.addEventListener('resize', _this.windowResizeListener);
+    };
+
+    _this.componentDidUnmount = function () {
+      if (_this.windowResizeListener) {
+        window.removeEventListener('resize', _this.windowResizeListener);
+        _this.windowResizeListener = undefined;
+      }
+    };
+
     _this.startGame = function (difficulty) {
       _this.game.startNewGame(difficulty);
 
@@ -1787,10 +1816,16 @@ function (_super) {
       _this.ctx = ctx;
     };
 
-    _this.canvasPixels = new pt_1.Pt(props.game.level.w, props.game.level.h);
     return _this;
   }
 
+  Object.defineProperty(AnimatedGame.prototype, "canvasPixel", {
+    get: function get() {
+      return new pt_1.Pt(this.props.game.level.w, this.props.game.level.h);
+    },
+    enumerable: false,
+    configurable: true
+  });
   Object.defineProperty(AnimatedGame.prototype, "canvasSize", {
     get: function get() {
       var gameRenderScale = this.props.gameRenderScale;
@@ -1809,6 +1844,7 @@ function (_super) {
   AnimatedGame.prototype.render = function () {
     var gameRenderScale = this.props.gameRenderScale;
     var canvasSize = this.canvasSize;
+    console.log(this.props.gameRenderScale, this);
     return Node('canvas', {
       ref: this.canvasSet,
       width: canvasSize.w,
@@ -1844,9 +1880,10 @@ function (_super) {
     var _this = this;
 
     var prevDelta = 0;
-    var N = this.props.gameRenderScale;
 
     var loop = function loop(delta) {
+      var N = _this.props.gameRenderScale;
+      console.log(N, _this);
       var ctx = _this.ctx;
       var game = _this.props.game;
       if (!ctx) return;
