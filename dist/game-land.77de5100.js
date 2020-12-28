@@ -139,7 +139,7 @@ var __assign = this && this.__assign || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.modifyTree2 = exports.RenderDom = exports.Init = exports.modifyTree = exports.Node = exports.useState = exports.Component = exports.Text = exports.VElem = exports.Element = exports._Element = void 0;
+exports.modifyTree2 = exports.RenderDom = exports.useState = exports.Component = exports.Element = exports._Element = void 0;
 
 var _Element =
 /** @class */
@@ -223,8 +223,8 @@ function () {
   };
 
   _Element.prototype.similar = function (e) {
-    if (e.maker.kind !== this.maker.kind) return false;
-    if (this.getMakerValue() !== e.getMakerValue()) return false;
+    if (e.maker.kind !== this.maker.kind) return false; // if (this.getMakerValue() !== e.getMakerValue()) return false;
+
     if (this.children.length !== e.children.length) return false;
     return true;
   };
@@ -279,66 +279,6 @@ function Element(type, props, children) {
 
 exports.Element = Element;
 
-var VElem =
-/** @class */
-function () {
-  function VElem(type, props, children, value) {
-    if (props === void 0) {
-      props = {};
-    }
-
-    if (children === void 0) {
-      children = [];
-    }
-
-    this.isRoot = false;
-    this.type = type;
-    this.props = props;
-    this.children = children.filter(function (x) {
-      return x !== null;
-    });
-    this.isTextNode = this.type === 'text-node';
-    this.value = value;
-  }
-
-  VElem.prototype.toString = function () {
-    if (this.isTextNode) {
-      return this.value.toString();
-    }
-
-    var _a = this,
-        props = _a.props,
-        type = _a.type,
-        children = _a.children;
-
-    return "<" + type + " props=\"" + JSON.stringify(props) + "\">\n                        " + children.map(function (c) {
-      return c.toString();
-    }).join('\n') + "\n                </" + type + ">\n        ";
-  };
-
-  VElem.prototype.getElem = function () {
-    if (!this._elem) return undefined;
-    if (this.isTextNode) return {
-      type: 'text',
-      e: this._elem
-    };
-    return {
-      type: 'elem',
-      e: this._elem
-    };
-  };
-
-  return VElem;
-}();
-
-exports.VElem = VElem;
-
-function Text(v) {
-  return new VElem('text-node', {}, [], v);
-}
-
-exports.Text = Text;
-
 var Component =
 /** @class */
 function () {
@@ -381,7 +321,6 @@ function () {
   UseStateSystem.prototype.set = function (v) {
     var _a;
 
-    console.log('wowee');
     this.v = v;
     (_a = this.repaint) === null || _a === void 0 ? void 0 : _a.call(this);
   };
@@ -445,183 +384,6 @@ var useState = function useState(state) {
 
 exports.useState = useState;
 
-function createVElement(node, props, children) {
-  var asAny = node;
-
-  if (asAny.prototype && asAny.prototype.__isComponent) {
-    var C = node;
-    var c_1 = new C(__assign(__assign({}, props), {
-      children: children
-    }));
-
-    c_1.paint = function (x) {
-      return repaint(x);
-    };
-
-    c_1._vnode = c_1.render();
-    c_1._vnode._name = c_1.constructor.name;
-
-    if (c_1.componentDidMount) {
-      c_1._vnode.componentDidMount = function () {
-        return c_1.componentDidMount();
-      };
-    }
-
-    if (c_1.componentDidUnmount) {
-      c_1._vnode.componentDidUnmount = function () {
-        return c_1.componentDidUnmount();
-      };
-    }
-
-    return c_1._vnode;
-  } else if (typeof node === 'function') {
-    var F_1 = node;
-
-    var p_1 = __assign(__assign({}, props), {
-      children: children
-    }); // if already a currentUseStateSystem, save it
-
-
-    currentUseStateSystem.takeout();
-    var vnode_1 = F_1(p_1);
-    var useStateSys = currentUseStateSystem.get();
-
-    if (useStateSys) {
-      var sys_1 = useStateSys;
-
-      sys_1.repaint = function () {
-        return repaintFunctionComponent(F_1, sys_1, vnode_1, p_1);
-      };
-    }
-
-    currentUseStateSystem.pop();
-    return vnode_1;
-  }
-
-  return new VElem(node, props, children);
-}
-
-function repaint(c) {
-  var oldTree = c._vnode;
-  var newTree = c.render();
-  newTree.componentDidMount = oldTree.componentDidMount;
-  newTree.componentDidUnmount = oldTree.componentDidUnmount; // console.log(oldTree.toString());
-  // console.log(newTree.toString());
-
-  var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
-  modifyTree(newTree, parent, oldTree);
-  c._vnode = newTree;
-
-  if (oldTree === null || oldTree === void 0 ? void 0 : oldTree.isRoot) {
-    var domParent = oldTree._dom;
-    domParent.replaceChild(newTree._elem, oldTree._elem);
-    newTree.isRoot = true;
-    newTree._dom = domParent;
-  }
-}
-
-function repaintFunctionComponent(c, useStateSystem, oldTree, props) {
-  currentUseStateSystem.useUseStateSys(useStateSystem);
-  var newTree = c(props);
-  currentUseStateSystem.pop();
-  newTree.componentDidMount = oldTree.componentDidMount;
-  newTree.componentDidUnmount = oldTree.componentDidUnmount;
-  var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
-  modifyTree(newTree, parent, oldTree);
-
-  useStateSystem.repaint = function () {
-    return repaintFunctionComponent(c, useStateSystem, newTree, props);
-  };
-
-  if (oldTree === null || oldTree === void 0 ? void 0 : oldTree.isRoot) {
-    var domParent = oldTree._dom;
-    domParent.replaceChild(newTree._elem, oldTree._elem);
-    newTree.isRoot = true;
-    newTree._dom = domParent;
-  }
-}
-
-function Node(type, props, children) {
-  if (props === void 0) {
-    props = {};
-  }
-
-  if (children === void 0) {
-    children = [];
-  }
-
-  return createVElement(type, props, children);
-}
-
-exports.Node = Node;
-
-function modifyTree(tree, parent, prevTree, updateDomIsRemount) {
-  var _a, _b;
-
-  var props = tree.props,
-      children = tree.children,
-      type = tree.type;
-
-  if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
-    // replace attributes
-    var pte = prevTree.getElem();
-
-    if (!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
-      assignProps(pte.e, props);
-    }
-
-    tree._elem = pte.e;
-    tree._parent = prevTree._parent;
-
-    if (tree.isTextNode && pte.type === 'text') {
-      pte.e.data = tree.toString();
-    } else {
-      loopThroughChildren(tree, prevTree, function (c, pc, i) {
-        modifyTree(c, tree, pc);
-      }, function (pc, i) {
-        var _a;
-
-        prevTree._elem.removeChild(pc._elem);
-
-        (_a = prevTree.componentDidUnmount) === null || _a === void 0 ? void 0 : _a.call(prevTree);
-      });
-    }
-  } else {
-    // replace this node and all children
-    var element = tree.isTextNode ? document.createTextNode(tree.value) : document.createElement(type);
-    tree._elem = element;
-    tree._parent = parent;
-
-    if (prevTree) {
-      prevTree._parent._elem.replaceChild(element, prevTree._elem);
-
-      (_a = prevTree.componentDidUnmount) === null || _a === void 0 ? void 0 : _a.call(prevTree);
-    } else if (parent) {
-      parent._elem.appendChild(element);
-    }
-
-    (_b = tree.componentDidMount) === null || _b === void 0 ? void 0 : _b.call(tree);
-    var te = tree.getElem();
-    if (te && te.type === 'elem') assignProps(te.e, props);
-
-    if (props.ref) {
-      props.ref(tree._elem);
-    }
-
-    loopThroughChildren(tree, prevTree, function (c, pc, i) {
-      modifyTree(c, tree, undefined);
-    }, function (pc, i) {
-      var _a;
-
-      prevTree._elem.removeChild(pc._elem);
-
-      (_a = prevTree.componentDidUnmount) === null || _a === void 0 ? void 0 : _a.call(prevTree);
-    });
-  }
-}
-
-exports.modifyTree = modifyTree;
-
 function loopThroughChildren(tree, prevTree, both, prevOnly) {
   var _a;
 
@@ -683,17 +445,7 @@ function objectsShallowEqual(obj1, obj2) {
   return true;
 }
 
-function Init(node, domParent) {
-  node.isRoot = true;
-  modifyTree(node);
-  domParent.appendChild(node._elem);
-  node._dom = domParent;
-}
-
-exports.Init = Init;
-
 function RenderDom(e, domParent) {
-  console.log('ok...');
   modifyTree2(e, undefined, domParent, undefined);
 }
 
@@ -733,7 +485,11 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
   tree._dom = parentDOM;
 
   if (prevTree && prevTree.similar(tree)) {
-    if (prevTree._elem && tree.maker.kind === 'html') {
+    if (tree.maker.kind === 'string' && prevTree.maker.kind == 'string') {
+      tree._elem = prevTree._elem;
+      var elem = tree._elem;
+      elem.data = tree.maker.value;
+    } else if (prevTree._elem && tree.maker.kind === 'html') {
       tree._elem = prevTree._elem;
 
       if (!objectsShallowEqual(tree.props, prevTree.props)) {
@@ -743,8 +499,6 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       loopThroughChildren(tree, prevTree, function (ch, pc, i) {
         modifyTree2(ch, tree, tree._elem, pc);
       }, function (pc, i) {
-        console.log('remove');
-
         if (prevTree._elem && pc._elem) {
           prevTree._elem.removeChild(pc._elem);
         }
@@ -760,13 +514,13 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       }
 
       tree._useStateSys = prevTree._useStateSys;
-      tree.createElement();
-      removeElements(prevTree);
-      unmountAll(prevTree._velem);
-      modifyTree2(tree._velem, tree, parentDOM, undefined);
+      tree.createElement(); // removeElements(prevTree);
+      // unmountAll(prevTree._velem);
+
+      modifyTree2(tree._velem, tree, parentDOM, prevTree._velem);
       return;
     } else return;
-  } // must re-write
+  } // new elements / overwrite prevTree
 
 
   tree.createElement();
@@ -777,7 +531,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
 
   if (parentDOM && tree._elem) {
     if (prevTree && prevTree._elem) {
-      parentDOM.replaceChild(tree._elem, prevTree._elem); // unmountAll(prevTree);
+      parentDOM.replaceChild(tree._elem, prevTree._elem);
     } else {
       parentDOM.appendChild(tree._elem);
     }
@@ -788,19 +542,15 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
 
     if (maker.kind === 'html') {
       assignProps(tree._elem, props);
-      loopThroughChildren(tree, prevTree, function (ch, pch, i) {
-        modifyTree2(ch, tree, tree._elem, undefined);
-      }, function (pc, i) {
-        // if (prevTree._elem && pc._elem) {
-        //     prevTree._elem.removeChild(pc._elem)
-        // }
-        // unmountAll(pc);
-        removeElements(pc);
-      });
     }
+
+    loopThroughChildren(tree, prevTree, function (ch, pch, i) {
+      modifyTree2(ch, tree, tree._elem, undefined);
+    }, function (pc, i) {
+      removeElements(pc);
+    });
   } else if (tree._velem) {
     if (prevTree) {
-      //     unmountAll(prevTree);
       removeElements(prevTree);
     }
 
@@ -812,8 +562,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
 exports.modifyTree2 = modifyTree2;
 
 function unmountAll(t) {
-  var _a; // console.log('unmount', t)
-
+  var _a;
 
   (_a = t._c) === null || _a === void 0 ? void 0 : _a.componentDidUnmount();
   t.children.forEach(unmountAll);
@@ -1932,7 +1681,6 @@ function (_super) {
     var _a = this.gameRenderScaleAndSize,
         gameRenderScale = _a.gameRenderScale,
         size = _a.size;
-    console.log(gameRenderScale);
     return Element('div', {}, [Element('div', {
       style: {
         display: 'flex',
@@ -2086,12 +1834,10 @@ function (_super) {
       _this.ctx = ctx;
     };
 
-    console.log('new AnimatedGame');
     return _this;
   }
 
   AnimatedGame.prototype.componentDidMount = function () {
-    console.log('MOUNTING GAME');
     this.gameLoop();
     this.setupEventListeners();
   };
@@ -2108,7 +1854,6 @@ function (_super) {
   AnimatedGame.prototype.componentDidUnmount = function () {
     var _a;
 
-    console.log('UNMOUNTIING GAME');
     (_a = this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(this);
     this.props.controller.reset();
 
@@ -2396,32 +2141,6 @@ var Block = function Block(_a) {
 },{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
-var __extends = this && this.__extends || function () {
-  var _extendStatics = function extendStatics(d, b) {
-    _extendStatics = Object.setPrototypeOf || {
-      __proto__: []
-    } instanceof Array && function (d, b) {
-      d.__proto__ = b;
-    } || function (d, b) {
-      for (var p in b) {
-        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
-      }
-    };
-
-    return _extendStatics(d, b);
-  };
-
-  return function (d, b) {
-    _extendStatics(d, b);
-
-    function __() {
-      this.constructor = d;
-    }
-
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-  };
-}();
-
 var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
   if (k2 === undefined) k2 = k;
   Object.defineProperty(o, k2, {
@@ -2456,20 +2175,6 @@ var __importStar = this && this.__importStar || function (mod) {
   return result;
 };
 
-var __spreadArrays = this && this.__spreadArrays || function () {
-  for (var s = 0, i = 0, il = arguments.length; i < il; i++) {
-    s += arguments[i].length;
-  }
-
-  for (var r = Array(s), k = 0, i = 0; i < il; i++) {
-    for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++) {
-      r[k] = a[j];
-    }
-  }
-
-  return r;
-};
-
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
@@ -2480,181 +2185,12 @@ var index_1 = require("./pacman/index");
 
 var Element = LReact.Element;
 
-function ListElem(_a) {
-  var v = _a.v;
-
-  var _b = LReact.useState(false),
-      bigFont = _b[0],
-      setBigFont = _b[1];
-
-  console.log('render ListElem');
-  return Element('li', {
-    style: {
-      fontSize: bigFont ? '20px' : '10px'
-    }
-  }, ["val=" + v, Element('button', {
-    onClick: function onClick() {
-      console.log('big font for ', v);
-      setBigFont(true);
-    }
-  }, ['use big font size?'])]);
-}
-
-var Lister =
-/** @class */
-function (_super) {
-  __extends(Lister, _super);
-
-  function Lister(props) {
-    var _this = _super.call(this, props) || this;
-
-    _this.push = function () {
-      _this.setState({
-        len: _this.state.len + 1
-      });
-    };
-
-    _this.pop = function () {
-      _this.setState({
-        len: Math.max(_this.state.len - 1, 0)
-      });
-    };
-
-    _this.state = {
-      len: 0
-    };
-    return _this;
-  }
-
-  Lister.prototype.componentDidMount = function () {
-    console.log('Lister mounted');
-  };
-
-  Lister.prototype.componentDidUnmount = function () {
-    console.log('Lister unmounted');
-  };
-
-  Lister.prototype.render = function () {
-    return Element('div', {
-      style: {
-        color: 'firebrick',
-        border: '1px dashed green'
-      }
-    }, __spreadArrays([Element('h4', {}, ['MY LIST:'])], Array.from({
-      length: this.state.len
-    }, function (_, i) {
-      return Element(ListElem, {
-        v: i
-      });
-    }), [Element('button', {
-      onClick: this.push
-    }, ['add']), Element('button', {
-      onClick: this.pop
-    }, ['remove'])]));
-  };
-
-  return Lister;
-}(LReact.Component);
-
-var Luke =
-/** @class */
-function (_super) {
-  __extends(Luke, _super);
-
-  function Luke() {
-    return _super !== null && _super.apply(this, arguments) || this;
-  }
-
-  Luke.prototype.componentDidMount = function () {
-    console.log('luke mounted');
-  };
-
-  Luke.prototype.componentDidUnmount = function () {
-    console.log('luke unmounted');
-  };
-
-  Luke.prototype.render = function () {
-    return Element('div', {
-      style: {
-        color: 'firebrick',
-        backgroundColor: 'lightblue',
-        padding: '20px'
-      }
-    }, ['luke here']);
-  };
-
-  return Luke;
-}(LReact.Component);
-
-var Peanut =
-/** @class */
-function (_super) {
-  __extends(Peanut, _super);
-
-  function Peanut(props) {
-    var _this = _super.call(this, props) || this;
-
-    _this.componentDidMount = function () {
-      console.log('Peanut mounted!');
-    };
-
-    _this.componentDidUnmount = function () {
-      console.log('Peanut unmounted!');
-    };
-
-    _this.changeToBlue = function () {
-      _this.setState({
-        color: 'blue'
-      });
-    };
-
-    _this.changeToGreen = function () {
-      _this.setState({
-        color: 'green'
-      });
-    };
-
-    _this.state = {
-      color: 'green'
-    };
-    return _this;
-  }
-
-  Peanut.prototype.render = function () {
-    var _this = this;
-
-    var color = this.state.color;
-    return Element('div', {
-      style: {
-        color: color
-      }
-    }, ['START', Element(Lister), color === 'green' ? Element('button', {
-      onClick: function onClick() {
-        return _this.changeToBlue();
-      }
-    }, ['to blue']) : null, color === 'blue' ? Element('button', {
-      onClick: function onClick() {
-        return _this.changeToGreen();
-      }
-    }, ['to green']) : null, color === 'green' ? Element(Luke) : null, 'END', Element(index_1.GameComponent)]);
-  };
-
-  return Peanut;
-}(LReact.Component); // function Cool() {
-//     return LReact.Node('div', {}, [
-//         Element(Peanut),
-//     ]);
-// };
-
-
-function Cool2(_a) {
-  return Element('div', {}, ['Cool2', Element(Peanut)]);
+function App(_a) {
+  return Element('div', {}, [Element(index_1.GameComponent)]);
 }
 
 ;
-var A = Element('div', {}, [Element('h1', {}, ['hello world']), Element('div', {}, [Element('p', {}, ['what would you like?']), Element(Cool2, {})]), Element('footer', {}, ['I am footer'])]);
-console.log(A);
-LReact.RenderDom(Element(Peanut), document.body); // LReact.Init(LReact.Node(Cool), document.body);
+LReact.RenderDom(Element(App), document.body);
 },{"./l_react":"l_react.ts","./pacman/index":"pacman/index.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';

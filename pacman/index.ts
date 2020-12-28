@@ -62,8 +62,6 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const useMobileControls = this.useMobileControls;
         const { gameRenderScale, size } = this.gameRenderScaleAndSize;
 
-        console.log(gameRenderScale);
-
         return Element('div', {}, [
             Element('div', {
                 style: {
@@ -199,11 +197,9 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     killEventListeners?: () => void;
     constructor(props: AnimatedGameProps) {
         super(props);
-        console.log('new AnimatedGame');
     }
 
     componentDidMount() {
-        console.log('MOUNTING GAME');
         this.gameLoop();
         this.setupEventListeners();
     };
@@ -213,7 +209,6 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     }
 
     componentDidUnmount() {
-        console.log('UNMOUNTIING GAME');
         this.killEventListeners?.();
         this.props.controller.reset();
         if (this.animationRequest !== undefined) {
