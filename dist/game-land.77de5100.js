@@ -700,14 +700,12 @@ function RenderDom(e, domParent) {
 exports.RenderDom = RenderDom;
 
 function repaint2(e) {
-  // maker must be component or function component, do function later
   var oldTree = e._velem;
   var newTree;
 
   if (e.maker.kind === 'c') {
     newTree = e._c.render();
   } else if (e.maker.kind === 'f') {
-    console.log('re-rrender F', e);
     var hasUSS = !!e._useStateSys;
 
     if (hasUSS) {
@@ -719,20 +717,11 @@ function repaint2(e) {
     if (hasUSS) {
       currentUseStateSystem.pop();
     }
-  } // newTree.componentDidMount = oldTree.componentDidMount;
-  // newTree.componentDidUnmount = oldTree.componentDidUnmount;
-  // console.log(oldTree.toString());
-  // console.log(newTree.toString());
-
+  }
 
   var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
   modifyTree2(newTree, parent, oldTree._dom, oldTree);
-  e._velem = newTree; // if (oldTree?.isRoot) {
-  //     const domParent = oldTree._dom;
-  //     domParent.replaceChild(newTree._elem, oldTree._elem);
-  //     newTree.isRoot = true;
-  //     newTree._dom = domParent;
-  // }
+  e._velem = newTree;
 }
 
 function modifyTree2(tree, parent, parentDOM, prevTree) {
@@ -741,8 +730,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
   var props = tree.props,
       children = tree.children,
       maker = tree.maker;
-  tree._dom = parentDOM; // debugger;
-  // console.log('f');
+  tree._dom = parentDOM;
 
   if (prevTree && prevTree.similar(tree)) {
     if (prevTree._elem && tree.maker.kind === 'html') {
@@ -762,14 +750,9 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
         }
 
         unmountAll(pc);
-      }); // tree.children.forEach((ch, i) => {
-      //     modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
-      // });
-
+      });
       return;
     } else if (prevTree._velem) {
-      // console.log('just replace attrbutes?', tree.maker);
-      // tree._velem = prevTree._velem;
       tree._c = prevTree._c;
 
       if (tree._c) {
@@ -777,13 +760,10 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       }
 
       tree._useStateSys = prevTree._useStateSys;
-      tree.createElement(); // prevTree._elem
-
+      tree.createElement();
       removeElements(prevTree);
-      modifyTree2(tree._velem, tree, parentDOM, undefined); // tree.children.forEach((ch, i) => {
-      //     modifyTree2(ch, tree, parentDOM, prevTree.children[i]);
-      // });
-
+      unmountAll(prevTree._velem);
+      modifyTree2(tree._velem, tree, parentDOM, undefined);
       return;
     } else return;
   } // must re-write
@@ -791,10 +771,13 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
 
   tree.createElement();
 
+  if (prevTree) {
+    unmountAll(prevTree);
+  }
+
   if (parentDOM && tree._elem) {
     if (prevTree && prevTree._elem) {
-      parentDOM.replaceChild(tree._elem, prevTree._elem);
-      unmountAll(prevTree);
+      parentDOM.replaceChild(tree._elem, prevTree._elem); // unmountAll(prevTree);
     } else {
       parentDOM.appendChild(tree._elem);
     }
@@ -808,88 +791,40 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       loopThroughChildren(tree, prevTree, function (ch, pch, i) {
         modifyTree2(ch, tree, tree._elem, undefined);
       }, function (pc, i) {
-        if (prevTree._elem && pc._elem) {
-          prevTree._elem.removeChild(pc._elem);
-        }
-
-        unmountAll(pc);
+        // if (prevTree._elem && pc._elem) {
+        //     prevTree._elem.removeChild(pc._elem)
+        // }
+        // unmountAll(pc);
         removeElements(pc);
-      }); // children.forEach(ch => {
-      // });
+      });
     }
   } else if (tree._velem) {
     if (prevTree) {
-      console.log('kill?', prevTree);
-      unmountAll(prevTree);
+      //     unmountAll(prevTree);
       removeElements(prevTree);
     }
 
     (_a = tree._c) === null || _a === void 0 ? void 0 : _a.componentDidMount();
     modifyTree2(tree._velem, tree, parentDOM, undefined);
-  } // tree.children.forEach(ch => {
-  // });
-  // old? :(
-  // if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
-  //     // replace attributes
-  //     const pte = prevTree.getElem()!;
-  //     if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
-  //         assignProps(pte.e, props);
-  //     }
-  //     tree._elem = pte.e;
-  //     tree._parent = prevTree._parent;
-  //     if (tree.isTextNode && pte.type === 'text') {
-  //         pte.e.data = tree.toString();
-  //     } else {
-  //         loopThroughChildren(tree, prevTree, (c, pc, i) => {
-  //             modifyTree(c, tree, pc);
-  //         }, (pc, i) => {
-  //             prevTree._elem.removeChild(pc._elem);
-  //             prevTree.componentDidUnmount?.();
-  //         });
-  //     }
-  // } else 
-  // {
-  // replace this node and all children
-  // const element = tree.isTextNode
-  //     ? document.createTextNode(tree.value)
-  //     : document.createElement(type);
-  // tree._elem = element;
-  //     tree._parent = parent;
-  //     if (prevTree) {
-  //         prevTree._parent._elem.replaceChild(element, prevTree._elem);
-  //         prevTree.componentDidUnmount?.();
-  //     } else if (parent) {
-  //         parent._elem.appendChild(element);
-  //     }
-  //     tree.componentDidMount?.();
-  //     const te = tree.getElem();
-  //     if (te && te.type === 'elem')
-  //         assignProps(te.e, props);
-  //     if (props.ref) {
-  //         props.ref(tree._elem);
-  //     }
-  //     loopThroughChildren(tree, prevTree, (c, pc, i) => {
-  //         modifyTree(c, tree, undefined);
-  //     }, (pc, i) => {
-  //         prevTree._elem.removeChild(pc._elem);
-  //         prevTree.componentDidUnmount?.();
-  //     });
-  // }
-
+  }
 }
 
 exports.modifyTree2 = modifyTree2;
 
 function unmountAll(t) {
-  var _a;
+  var _a; // console.log('unmount', t)
+
 
   (_a = t._c) === null || _a === void 0 ? void 0 : _a.componentDidUnmount();
   t.children.forEach(unmountAll);
+  if (t._velem) unmountAll(t._velem);
 }
 
 function removeElements(t) {
   if (t._dom && t._elem) {
     t._dom.removeChild(t._elem);
+
+    t._elem = undefined;
   }
 
   if (t._velem) {
@@ -2146,25 +2081,6 @@ function (_super) {
   function AnimatedGame(props) {
     var _this = _super.call(this, props) || this;
 
-    _this.componentDidMount = function () {
-      _this.gameLoop();
-
-      _this.setupEventListeners();
-    };
-
-    _this.componentDidUnmount = function () {
-      var _a;
-
-      (_a = _this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(_this);
-
-      _this.props.controller.reset();
-
-      if (_this.animationRequest !== undefined) {
-        cancelAnimationFrame(_this.animationRequest);
-        _this.animationRequest = undefined;
-      }
-    };
-
     _this.canvasSet = function (canvas) {
       var ctx = canvas.getContext('2d');
       _this.ctx = ctx;
@@ -2174,6 +2090,13 @@ function (_super) {
     return _this;
   }
 
+  AnimatedGame.prototype.componentDidMount = function () {
+    console.log('MOUNTING GAME');
+    this.gameLoop();
+    this.setupEventListeners();
+  };
+
+  ;
   Object.defineProperty(AnimatedGame.prototype, "canvasPixel", {
     get: function get() {
       return new pt_1.Pt(this.props.game.level.w, this.props.game.level.h);
@@ -2181,6 +2104,21 @@ function (_super) {
     enumerable: false,
     configurable: true
   });
+
+  AnimatedGame.prototype.componentDidUnmount = function () {
+    var _a;
+
+    console.log('UNMOUNTIING GAME');
+    (_a = this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(this);
+    this.props.controller.reset();
+
+    if (this.animationRequest !== undefined) {
+      cancelAnimationFrame(this.animationRequest);
+      this.animationRequest = undefined;
+    }
+  };
+
+  ;
   Object.defineProperty(AnimatedGame.prototype, "canvasSize", {
     get: function get() {
       var gameRenderScale = this.props.gameRenderScale;
@@ -2589,11 +2527,11 @@ function (_super) {
   }
 
   Lister.prototype.componentDidMount = function () {
-    console.log('luke mounted');
+    console.log('Lister mounted');
   };
 
   Lister.prototype.componentDidUnmount = function () {
-    console.log('luke unmounted');
+    console.log('Lister unmounted');
   };
 
   Lister.prototype.render = function () {

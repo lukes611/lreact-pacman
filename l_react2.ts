@@ -436,13 +436,11 @@ export function RenderDom(e: _Element, domParent: HTMLElement) {
 }
 
 function repaint2<P extends object, S extends object>(e: _Element) {
-    // maker must be component or function component, do function later
     const oldTree = e._velem!;
     let newTree: _Element;
     if (e.maker.kind === 'c') {
         newTree = e._c.render();
     } else if (e.maker.kind === 'f') {
-        console.log('re-rrender F', e)
         const hasUSS = !!e._useStateSys;
         if (hasUSS) {
             currentUseStateSystem.useUseStateSys(e._useStateSys);
@@ -454,28 +452,16 @@ function repaint2<P extends object, S extends object>(e: _Element) {
         }
     }
     
-    // newTree.componentDidMount = oldTree.componentDidMount;
-    // newTree.componentDidUnmount = oldTree.componentDidUnmount;
-    // console.log(oldTree.toString());
-    // console.log(newTree.toString());
     const parent = oldTree?._parent;
     
     modifyTree2(newTree, parent, oldTree._dom, oldTree);
     e._velem = newTree;
-    // if (oldTree?.isRoot) {
-    //     const domParent = oldTree._dom;
-    //     domParent.replaceChild(newTree._elem, oldTree._elem);
-    //     newTree.isRoot = true;
-    //     newTree._dom = domParent;
-    // }
 }
 
 export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLElement, prevTree?: _Element) {
     const { props, children, maker } = tree;
     tree._dom = parentDOM;
-    // debugger;
-    // console.log('f');
-
+    
     if (prevTree && prevTree.similar(tree)) {
         if (prevTree._elem && tree.maker.kind === 'html') {
             tree._elem = prevTree._elem;
@@ -491,37 +477,31 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
                 }
                 unmountAll(pc);
             });
-            // tree.children.forEach((ch, i) => {
-            //     modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
-            // });
             return;
         } 
         else if (prevTree._velem) {
-            // console.log('just replace attrbutes?', tree.maker);
-            // tree._velem = prevTree._velem;
             tree._c = prevTree._c;
             if (tree._c) {
                 tree._c.props = props;
             }
             tree._useStateSys = prevTree._useStateSys;
             tree.createElement();
-            // prevTree._elem
             removeElements(prevTree);
+            unmountAll(prevTree._velem);
             modifyTree2(tree._velem, tree, parentDOM, undefined);
-
-            // tree.children.forEach((ch, i) => {
-            //     modifyTree2(ch, tree, parentDOM, prevTree.children[i]);
-            // });
             return;
         } else return;
     }
 
     // must re-write
     tree.createElement();
+    if (prevTree) {
+        unmountAll(prevTree);
+    }
     if (parentDOM && tree._elem) {
         if (prevTree && prevTree._elem) {
             parentDOM.replaceChild(tree._elem, prevTree._elem);
-            unmountAll(prevTree);
+            // unmountAll(prevTree);
         } else {
             parentDOM.appendChild(tree._elem);
         }
@@ -533,91 +513,34 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             loopThroughChildren(tree, prevTree, (ch, pch, i) => {
                 modifyTree2(ch, tree, tree._elem as HTMLElement, undefined);
             }, (pc, i) => {
-                if (prevTree._elem && pc._elem) {
-                    prevTree._elem.removeChild(pc._elem)
-                }
-                unmountAll(pc);
+                // if (prevTree._elem && pc._elem) {
+                //     prevTree._elem.removeChild(pc._elem)
+                // }
+                // unmountAll(pc);
                 removeElements(pc);
             });
-            // children.forEach(ch => {
-            // });
         }
     } else if (tree._velem) {
         if (prevTree) {
-            console.log('kill?', prevTree)
-            unmountAll(prevTree);
+        //     unmountAll(prevTree);
             removeElements(prevTree);
         }
         tree._c?.componentDidMount();
         modifyTree2(tree._velem, tree, parentDOM, undefined);
     }
-
-    // tree.children.forEach(ch => {
-
-    // });
-
-    // old? :(
-    // if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
-    //     // replace attributes
-    //     const pte = prevTree.getElem()!;
-    //     if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
-    //         assignProps(pte.e, props);
-    //     }
-    //     tree._elem = pte.e;
-    //     tree._parent = prevTree._parent;
-
-    //     if (tree.isTextNode && pte.type === 'text') {
-    //         pte.e.data = tree.toString();
-    //     } else {
-    //         loopThroughChildren(tree, prevTree, (c, pc, i) => {
-    //             modifyTree(c, tree, pc);
-    //         }, (pc, i) => {
-    //             prevTree._elem.removeChild(pc._elem);
-    //             prevTree.componentDidUnmount?.();
-    //         });
-    //     }
-    // } else 
-    // {
-        // replace this node and all children
-
-        // const element = tree.isTextNode
-        //     ? document.createTextNode(tree.value)
-        //     : document.createElement(type);
-        // tree._elem = element;
-    //     tree._parent = parent;
-    //     if (prevTree) {
-    //         prevTree._parent._elem.replaceChild(element, prevTree._elem);
-    //         prevTree.componentDidUnmount?.();
-    //     } else if (parent) {
-    //         parent._elem.appendChild(element);
-    //     }
-    //     tree.componentDidMount?.();
-    //     const te = tree.getElem();
-    //     if (te && te.type === 'elem')
-    //         assignProps(te.e, props);
-
-    //     if (props.ref) {
-    //         props.ref(tree._elem);
-    //     }
-
-    //     loopThroughChildren(tree, prevTree, (c, pc, i) => {
-    //         modifyTree(c, tree, undefined);
-    //     }, (pc, i) => {
-    //         prevTree._elem.removeChild(pc._elem);
-    //         prevTree.componentDidUnmount?.();
-    //     });
-
-    // }
 }
 
 function unmountAll(t: _Element) {
+    // console.log('unmount', t)
     t._c?.componentDidUnmount();
     t.children.forEach(unmountAll);
+    if (t._velem) unmountAll(t._velem);
 }
 
 function removeElements(t: _Element) {
     if (t._dom && t._elem) {
         t._dom.removeChild(t._elem);
+        t._elem = undefined;
     }
     if (t._velem) {
         removeElements(t._velem);

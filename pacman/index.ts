@@ -202,7 +202,8 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
         console.log('new AnimatedGame');
     }
 
-    componentDidMount = () => {
+    componentDidMount() {
+        console.log('MOUNTING GAME');
         this.gameLoop();
         this.setupEventListeners();
     };
@@ -211,7 +212,8 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
         return new Pt(this.props.game.level.w, this.props.game.level.h);
     }
 
-    componentDidUnmount = () => {
+    componentDidUnmount() {
+        console.log('UNMOUNTIING GAME');
         this.killEventListeners?.();
         this.props.controller.reset();
         if (this.animationRequest !== undefined) {

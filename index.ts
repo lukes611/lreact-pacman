@@ -33,10 +33,10 @@ class Lister extends LReact.Component<{}, { len: number }> {
         };
     }
     componentDidMount() {
-        console.log('luke mounted');
+        console.log('Lister mounted');
     }
     componentDidUnmount() {
-        console.log('luke unmounted');
+        console.log('Lister unmounted');
     }
 
     push = () => {
