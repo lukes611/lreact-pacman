@@ -741,23 +741,46 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
   var props = tree.props,
       children = tree.children,
       maker = tree.maker;
-  tree._dom = parentDOM;
+  tree._dom = parentDOM; // debugger;
+  // console.log('f');
 
-  if (prevTree && prevTree.similar(tree) && false) {
+  if (prevTree && prevTree.similar(tree)) {
     if (prevTree._elem && tree.maker.kind === 'html') {
       tree._elem = prevTree._elem;
-      assignProps(tree._elem, props);
-      tree.children.forEach(function (ch, i) {
-        modifyTree2(ch, tree, tree._elem, prevTree.children[i]);
-      });
+
+      if (!objectsShallowEqual(tree.props, prevTree.props)) {
+        assignProps(tree._elem, props);
+      }
+
+      loopThroughChildren(tree, prevTree, function (ch, pc, i) {
+        modifyTree2(ch, tree, tree._elem, pc);
+      }, function (pc, i) {
+        console.log('remove');
+
+        if (prevTree._elem && pc._elem) {
+          prevTree._elem.removeChild(pc._elem);
+        }
+
+        unmountAll(pc);
+      }); // tree.children.forEach((ch, i) => {
+      //     modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
+      // });
+
       return;
     } else if (prevTree._velem) {
       // console.log('just replace attrbutes?', tree.maker);
       // tree._velem = prevTree._velem;
       tree._c = prevTree._c;
+
+      if (tree._c) {
+        tree._c.props = props;
+      }
+
       tree._useStateSys = prevTree._useStateSys;
-      tree.createElement();
-      modifyTree2(tree._velem, tree, parentDOM, prevTree._velem); // tree.children.forEach((ch, i) => {
+      tree.createElement(); // prevTree._elem
+
+      removeElements(prevTree);
+      modifyTree2(tree._velem, tree, parentDOM, undefined); // tree.children.forEach((ch, i) => {
       //     modifyTree2(ch, tree, parentDOM, prevTree.children[i]);
       // });
 
@@ -782,13 +805,23 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
 
     if (maker.kind === 'html') {
       assignProps(tree._elem, props);
-      children.forEach(function (ch) {
+      loopThroughChildren(tree, prevTree, function (ch, pch, i) {
         modifyTree2(ch, tree, tree._elem, undefined);
-      });
+      }, function (pc, i) {
+        if (prevTree._elem && pc._elem) {
+          prevTree._elem.removeChild(pc._elem);
+        }
+
+        unmountAll(pc);
+        removeElements(pc);
+      }); // children.forEach(ch => {
+      // });
     }
   } else if (tree._velem) {
     if (prevTree) {
+      console.log('kill?', prevTree);
       unmountAll(prevTree);
+      removeElements(prevTree);
     }
 
     (_a = tree._c) === null || _a === void 0 ? void 0 : _a.componentDidMount();
@@ -852,6 +885,16 @@ function unmountAll(t) {
 
   (_a = t._c) === null || _a === void 0 ? void 0 : _a.componentDidUnmount();
   t.children.forEach(unmountAll);
+}
+
+function removeElements(t) {
+  if (t._dom && t._elem) {
+    t._dom.removeChild(t._elem);
+  }
+
+  if (t._velem) {
+    removeElements(t._velem);
+  }
 }
 },{}],"pacman/pt.ts":[function(require,module,exports) {
 "use strict";

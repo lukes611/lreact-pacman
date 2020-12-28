@@ -369,17 +369,17 @@ export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem, update
 }
 
 type BothFn = (
-    child: VElem,
-    prevChild: VElem | undefined,
+    child: _Element,
+    prevChild: _Element | undefined,
     index: number,
 ) => void;
 
 type PrevFn = (
-    prevChild: VElem,
+    prevChild: _Element,
     index: number,
 ) => void;
 
-function loopThroughChildren(tree: VElem, prevTree: VElem | undefined, both: BothFn, prevOnly: PrevFn) {
+function loopThroughChildren(tree: _Element, prevTree: _Element | undefined, both: BothFn, prevOnly: PrevFn) {
     const prevChildren = (prevTree ? prevTree.children : []) ?? [];
     tree.children.forEach((c, i) => {
         both(c, prevChildren[i], i);
@@ -473,23 +473,41 @@ function repaint2<P extends object, S extends object>(e: _Element) {
 export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLElement, prevTree?: _Element) {
     const { props, children, maker } = tree;
     tree._dom = parentDOM;
+    // debugger;
+    // console.log('f');
 
-    if (prevTree && prevTree.similar(tree) && false) {
+    if (prevTree && prevTree.similar(tree)) {
         if (prevTree._elem && tree.maker.kind === 'html') {
             tree._elem = prevTree._elem;
-            assignProps(tree._elem as HTMLElement, props);
-            tree.children.forEach((ch, i) => {
-                modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
+            if (!objectsShallowEqual(tree.props, prevTree.props)) {
+                assignProps(tree._elem as HTMLElement, props);
+            }
+            loopThroughChildren(tree, prevTree, (ch, pc, i) => {
+                modifyTree2(ch, tree, tree._elem as HTMLElement, pc);
+            }, (pc, i) => {
+                console.log('remove')
+                if (prevTree._elem && pc._elem) {
+                    prevTree._elem.removeChild(pc._elem)
+                }
+                unmountAll(pc);
             });
+            // tree.children.forEach((ch, i) => {
+            //     modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
+            // });
             return;
         } 
         else if (prevTree._velem) {
             // console.log('just replace attrbutes?', tree.maker);
             // tree._velem = prevTree._velem;
             tree._c = prevTree._c;
+            if (tree._c) {
+                tree._c.props = props;
+            }
             tree._useStateSys = prevTree._useStateSys;
             tree.createElement();
-            modifyTree2(tree._velem, tree, parentDOM, prevTree._velem);
+            // prevTree._elem
+            removeElements(prevTree);
+            modifyTree2(tree._velem, tree, parentDOM, undefined);
 
             // tree.children.forEach((ch, i) => {
             //     modifyTree2(ch, tree, parentDOM, prevTree.children[i]);
@@ -512,13 +530,23 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
         }
         if (maker.kind === 'html') {
             assignProps(tree._elem as HTMLElement, props);
-            children.forEach(ch => {
+            loopThroughChildren(tree, prevTree, (ch, pch, i) => {
                 modifyTree2(ch, tree, tree._elem as HTMLElement, undefined);
+            }, (pc, i) => {
+                if (prevTree._elem && pc._elem) {
+                    prevTree._elem.removeChild(pc._elem)
+                }
+                unmountAll(pc);
+                removeElements(pc);
             });
+            // children.forEach(ch => {
+            // });
         }
     } else if (tree._velem) {
         if (prevTree) {
+            console.log('kill?', prevTree)
             unmountAll(prevTree);
+            removeElements(prevTree);
         }
         tree._c?.componentDidMount();
         modifyTree2(tree._velem, tree, parentDOM, undefined);
@@ -585,4 +613,13 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
 function unmountAll(t: _Element) {
     t._c?.componentDidUnmount();
     t.children.forEach(unmountAll);
+}
+
+function removeElements(t: _Element) {
+    if (t._dom && t._elem) {
+        t._dom.removeChild(t._elem);
+    }
+    if (t._velem) {
+        removeElements(t._velem);
+    }
 }
