@@ -1,4 +1,4 @@
-import * as LReact from '../l_react2';
+import * as LReact from '../l_react';
 import { Dir, DIRECTIONS } from './game';
 
 export class Controller {

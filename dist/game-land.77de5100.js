@@ -117,7 +117,7 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"l_react2.ts":[function(require,module,exports) {
+})({"l_react.ts":[function(require,module,exports) {
 "use strict";
 
 var __assign = this && this.__assign || function () {
@@ -1602,7 +1602,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.ButtonControls = exports.KeyboardInstructions = exports.setupKeyboardControls = exports.Controller = void 0;
 
-var LReact = __importStar(require("../l_react2"));
+var LReact = __importStar(require("../l_react"));
 
 var Controller =
 /** @class */
@@ -1756,7 +1756,7 @@ function (_super) {
 }(LReact.Component);
 
 exports.ButtonControls = ButtonControls;
-},{"../l_react2":"l_react2.ts"}],"pacman/index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -1838,7 +1838,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.GameComponent = void 0;
 
-var LReact = __importStar(require("../l_react2"));
+var LReact = __importStar(require("../l_react"));
 
 var game_1 = require("./game");
 
@@ -2393,7 +2393,7 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"../l_react2":"l_react2.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -2474,7 +2474,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var LReact = __importStar(require("./l_react2"));
+var LReact = __importStar(require("./l_react"));
 
 var index_1 = require("./pacman/index");
 
@@ -2655,7 +2655,7 @@ function Cool2(_a) {
 var A = Element('div', {}, [Element('h1', {}, ['hello world']), Element('div', {}, [Element('p', {}, ['what would you like?']), Element(Cool2, {})]), Element('footer', {}, ['I am footer'])]);
 console.log(A);
 LReact.RenderDom(Element(Peanut), document.body); // LReact.Init(LReact.Node(Cool), document.body);
-},{"./l_react2":"l_react2.ts","./pacman/index":"pacman/index.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"./l_react":"l_react.ts","./pacman/index":"pacman/index.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;

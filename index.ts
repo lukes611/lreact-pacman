@@ -1,4 +1,4 @@
-import * as LReact from './l_react2';
+import * as LReact from './l_react';
 import { GameComponent } from './pacman/index';
 const Element = LReact.Element;
 

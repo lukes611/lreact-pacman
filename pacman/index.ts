@@ -1,4 +1,4 @@
-import * as LReact from '../l_react2';
+import * as LReact from '../l_react';
 import { Level, Game, Dir, DIRECTIONS, GameState, Difficulty } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
