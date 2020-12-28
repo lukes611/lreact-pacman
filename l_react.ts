@@ -208,6 +208,8 @@ function loopThroughChildren(tree: VElem, prevTree: VElem | undefined, both: Bot
 function assignProps(element: HTMLElement, props: Record<string, any>) {
     if (props.style) Object.assign(element.style, props.style);
     if (props.onClick) element.onclick = (e) => props.onClick(e);
+    if (props.onMouseDown) element.onmousedown = (e) => props.onMouseDown(e);
+    if (props.onMouseUp) element.onmouseup = (e) => props.onMouseUp(e);
     if (props.onChange) element.oninput = (e) => props.onChange(e);
 
     const rawAttributes = new Set(['width', 'height', 'href', 'id', 'value']);

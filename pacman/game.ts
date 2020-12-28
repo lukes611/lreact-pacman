@@ -60,6 +60,7 @@ export const level1 = halfLevel1
     .join('\n');
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
+export const DIRECTIONS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 function ptToDir(p: Pt): Dir {
     if (p.x) {
         if (p.x < 0) return 'left';
@@ -174,8 +175,7 @@ export class Level {
 
     
     forSurroundingPoints(p: Pt, f: (dir: Dir, p: Pt, v: string | undefined) => void) {
-        const dirArr: Dir[] = ['up', 'down', 'left', 'right'];
-        dirArr
+        DIRECTIONS
             .forEach((dir: Dir) => {
                 const x = p.addP(dirToPt(dir));
                 f(dir, x, this.getV(x.x, x.y));
@@ -184,8 +184,7 @@ export class Level {
 
     getDirectionOptions(p: Pt): Dir[] {
         const rp = this.getClosestRailPoint(p);
-        const possibles: Dir[] = ['up', 'down', 'left', 'right'];
-        return possibles.filter(d => {
+        return DIRECTIONS.filter(d => {
             const v = dirToPt(d);
             const x = rp.addP(v);
             if (this.isPathP(x)) return true;
@@ -394,7 +393,7 @@ export class Game {
             Ghost.create(level, 'purple'),
         ];
         this.level.forEach((v, x, y) => {
-            if (v !== ' ') {
+            if (v && v !== ' ') {
                 this.candy.push(new Pt(x, y));
             }
         });

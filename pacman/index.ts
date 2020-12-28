@@ -1,8 +1,13 @@
 import * as LReact from '../l_react';
-import { Level, Game, Dir } from './game';
+import { Level, Game, Dir, DIRECTIONS } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
 const { Node, Text } = LReact;
+import {
+    Controller,
+    setupKeyboardControls,
+    ButtonControls,
+} from './game_controls';
 
 type GameState =
     | 'not-started'
@@ -12,11 +17,13 @@ type GameState =
 
 type GameComponentState = {
     state: GameState,
-    windowSize: { w: number, h: number };
+    windowSize: { w: number, h: number },
 };
 export class GameComponent extends LReact.Component<{}, GameComponentState> {
     level: Level;
     game: Game;
+    controller = new Controller();
+
     constructor(props: {}) {
         super(props);
         this.level = Level.createLevel1();
@@ -30,17 +37,24 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         };
     }
     render() {
-        const N = 10;
+        const { windowSize } = this.state;
+
+        const s = Math.min(windowSize.w - 16, 400);
+        
+        const size = {
+            w: s,
+            h: s + 10,
+        };
+
+        const gameRenderScale = size.w / (this.level.w+2);
+
+
         return Node('div', {}, [
             Text(this.state.state),
-            Node(LevelGameContainer, {
-                N: 10,
-                w: this.level.w,
-                h: this.level.h,
-            }, [
-                Node(RenderedLevel, { level: this.level }),
+            Node(LevelGameContainer, size, [
+                Node(RenderedLevel, { level: this.level, N: gameRenderScale }),
                 this.state.state === 'not-started'
-                    ? Node(AnimatedGame, { game: this.game, paused: this.state.state === 'paused' }, [])
+                    ? Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller }, [])
                     : Text('no game'),
             ]),
             Node('button', {
@@ -52,19 +66,24 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     }
                 },
             }, [Text('stop')]),
+            Node(ButtonControls, { controller: this.controller }),
         ]);
     }
 }
 
-class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}> {
+type AnimatedGameProps = {
+    game: Game,
+    gameRenderScale: number,
+    controller: Controller,
+};
+class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     ctx?: CanvasRenderingContext2D;
     canvasPixels: Pt;
-    keys = new Map<string, boolean>();
     animId?: { id: number };
     killEventListeners?: () => void;
-    constructor(props: { game: Game, paused: boolean }) {
+    constructor(props: AnimatedGameProps) {
         super(props);
-        this.canvasPixels = new Pt(props.game.level.w + 1, props.game.level.h);
+        this.canvasPixels = new Pt(props.game.level.w, props.game.level.h);
     }
 
     componentDidMount = () => {
@@ -73,23 +92,34 @@ class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}>
 
     componentDidUnmount = () => {
         this.killEventListeners?.();
+        this.props.controller.reset();
         if (this.animId) {
             cancelAnimationFrame(this.animId.id);
         }
-        console.log('cleaned it up')
     };
 
+    get canvasSize() {
+        const gameRenderScale = this.props.gameRenderScale;
+        const level = this.props.game.level;
+        const w = (level.w+1) * gameRenderScale;
+        const h = (level.h+1) * gameRenderScale;
+        return { w, h };
+    }
+
     render() {
-        const { game: { level } } = this.props;
+        const { gameRenderScale } = this.props;
+        const canvasSize = this.canvasSize;
         return Node('canvas', {
             ref: this.canvasSet,
-            width: this.canvasPixels.x * 10,
-            height: this.canvasPixels.y * 10,
+            width: canvasSize.w,
+            height: canvasSize.h,
             style: {
-                width: `${(level.w+1) * 10}px`,
-                height: `${level.h * 10}px`,
+                width: `${canvasSize.w}px`,
+                height: `${canvasSize.h}px`,
                 position: 'absolute',
                 zIndex: 2,
+                top: (gameRenderScale*0.5) + 'px',
+                left: (gameRenderScale*0.5) + 'px',
             },
         });
     }
@@ -103,31 +133,21 @@ class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}>
 
     setupEventListeners() {
         this.killEventListeners?.();
-        const keyDownListener = (e: KeyboardEvent) => {
-            if (!this.props.paused) this.keys.set(e.key, true);
-        };
-        document.body.addEventListener('keydown', keyDownListener);
-        const keyUpListener = (e: KeyboardEvent) => {
-            if (!this.props.paused) this.keys.set(e.key, false);
-        };
-        document.body.addEventListener('keyup', keyUpListener);
-        this.killEventListeners = () => {
-            document.body.removeEventListener('keydown', keyDownListener);
-            document.body.removeEventListener('keyup', keyUpListener);
-        };
+        const controller = this.props.controller;
+        controller.reset();
+        this.killEventListeners = setupKeyboardControls(this.props.controller);
     }
 
-
-
     getPlayerInputDir(): Dir | undefined {
-        if (this.keys.get('ArrowUp')) return 'up';
-        if (this.keys.get('ArrowRight')) return 'right';
-        if (this.keys.get('ArrowLeft')) return 'left';
-        if (this.keys.get('ArrowDown')) return 'down';
+        console.log('RIGHT', this.props.controller.isPressed('right'));
+        for (const d of DIRECTIONS) {
+            if (this.props.controller.isPressed(d)) return d;
+        }
     }
 
     gameLoop() {
         let prevDelta = 0;
+        const N = this.props.gameRenderScale;
         const loop = (delta: number) => {
             const { ctx } = this;
             const { game } = this.props;
@@ -135,16 +155,20 @@ class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}>
             const dt = delta - prevDelta;
             prevDelta = delta;
             game.tick(dt, this.getPlayerInputDir());
-            ctx.clearRect(0, 0, this.canvasPixels.x * 10, this.canvasPixels.y * 10);
+            const canvasSize = this.canvasSize;
+            ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
+            ctx.translate(-N * 0.6, -N * 0.6);
 
             game.candy.forEach((c) => {
-                const p = c.add(1.5, 1.5).scale(10);
+                const p = c.add(1.5, 1.5).scale(N);
                 ctx.fillStyle = 'pink';
                 drawEllipse(ctx, p.x, p.y, 2, 2);
             });
             
-            drawPacMan(ctx, game.pacman);
-            game.ghosts.forEach(g => drawGhost(ctx, g));
+            drawPacMan(ctx, game.pacman, N);
+            game.ghosts.forEach(g => drawGhost(ctx, g, N));
+
+            ctx.resetTransform();
 
             this.animId = { id: requestAnimationFrame(loop) };
         }
@@ -152,24 +176,24 @@ class AnimatedGame extends LReact.Component<{ game: Game, paused: boolean }, {}>
     }
 }
 
-const LevelGameContainer = ({ w, h, N, children }: {
+const LevelGameContainer = ({ w, h, children }: {
     w: number,
     h: number,
-    N: number,
     children?: LReact.VElem[],
 }) => {
     return Node('div', {
         style: {
             backgroundColor: 'lightblue',
-            padding: '16px',
             display: 'grid',
             placeItems: 'center',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
         },
     }, [
         Node('div', {
             style: {
-                width: `${(w+2) * N}px`,
-                height: `${(h+2) * N}px`,
+                width: `${w}px`,
+                height: `${h}px`,
                 position: 'relative',
             },
         }, children),
@@ -178,10 +202,11 @@ const LevelGameContainer = ({ w, h, N, children }: {
 
 function RenderedLevel({
     level,
+    N,
 }: {
     level: Level,
+    N: number,
 }) {
-    const N = 10;
     const thick = 2;
     const halfThick = thick * 0.5;
     const offset = new Pt(N, N);
@@ -190,7 +215,7 @@ function RenderedLevel({
         for (let x = 0; x < level.w; x++) {
             if (level.isPath(x, y)) {
                 const center = new Pt(x + 0.5, y + 0.5);
-                const topLeft = center.add(-thick * 0.5, -thick * 0.5);
+                const topLeft = center.add(-halfThick, -halfThick);
                 blocks.push(Node(Block, {
                     top:  topLeft.y * N + offset.y,
                     left: topLeft.x * N + offset.x,

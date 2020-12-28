@@ -4,9 +4,9 @@ import {
     Pacman,
 } from './game';
 
-export const drawPacMan = (ctx: CanvasRenderingContext2D, pacman: Pacman) => {
-    const size = 8;
-    const pos = pacman.pos.add(1.5, 1.4).scale(10);
+export const drawPacMan = (ctx: CanvasRenderingContext2D, pacman: Pacman, N: number) => {
+    const size = N * 8/10;
+    const pos = pacman.pos.add(1.5, 1.4).scale(N);
     const { mouthOpenPerc } = pacman;
     const angle = pacman.dirV.getAngle();
     ctx.translate(pos.x, pos.y);
@@ -28,9 +28,9 @@ export const drawPacMan = (ctx: CanvasRenderingContext2D, pacman: Pacman) => {
     ctx.resetTransform();
 }
 
-export const drawGhost = (ctx: CanvasRenderingContext2D, ghost: Ghost) => {
-    const size = 16;
-    const pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
+export const drawGhost = (ctx: CanvasRenderingContext2D, ghost: Ghost, N: number) => {
+    const size = N * 16/10;
+    const pos = ghost.pos.add(0.8, 0.6).scale(N);
     ctx.translate(pos.x, pos.y);
     ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
     drawArc(ctx, 0, 0, size * 0.5, 180, 360);

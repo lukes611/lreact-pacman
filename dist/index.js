@@ -378,6 +378,12 @@ function assignProps(element, props) {
   if (props.onClick) element.onclick = function (e) {
     return props.onClick(e);
   };
+  if (props.onMouseDown) element.onmousedown = function (e) {
+    return props.onMouseDown(e);
+  };
+  if (props.onMouseUp) element.onmouseup = function (e) {
+    return props.onMouseUp(e);
+  };
   if (props.onChange) element.oninput = function (e) {
     return props.onChange(e);
   };
@@ -543,7 +549,7 @@ var __extends = this && this.__extends || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Game = exports.Ghost = exports.Pacman = exports.Agent = exports.Level = exports.level1 = void 0;
+exports.Game = exports.Ghost = exports.Pacman = exports.Agent = exports.Level = exports.DIRECTIONS = exports.level1 = void 0;
 
 var pt_1 = require("./pt");
 
@@ -556,6 +562,7 @@ exports.level1 = halfLevel1.split('\n').map(function (line) {
   }).join('');
   return line + secondHalf;
 }).join('\n');
+exports.DIRECTIONS = ['up', 'down', 'left', 'right'];
 
 function ptToDir(p) {
   if (p.x) {
@@ -683,8 +690,7 @@ function () {
   Level.prototype.forSurroundingPoints = function (p, f) {
     var _this = this;
 
-    var dirArr = ['up', 'down', 'left', 'right'];
-    dirArr.forEach(function (dir) {
+    exports.DIRECTIONS.forEach(function (dir) {
       var x = p.addP(dirToPt(dir));
       f(dir, x, _this.getV(x.x, x.y));
     });
@@ -694,8 +700,7 @@ function () {
     var _this = this;
 
     var rp = this.getClosestRailPoint(p);
-    var possibles = ['up', 'down', 'left', 'right'];
-    return possibles.filter(function (d) {
+    return exports.DIRECTIONS.filter(function (d) {
       var v = dirToPt(d);
       var x = rp.addP(v);
       if (_this.isPathP(x)) return true;
@@ -945,7 +950,7 @@ function () {
     this.pacman = Pacman.create(level);
     this.ghosts = [Ghost.create(level, 'red'), Ghost.create(level, 'blue'), Ghost.create(level, 'yellow'), Ghost.create(level, 'purple')];
     this.level.forEach(function (v, x, y) {
-      if (v !== ' ') {
+      if (v && v !== ' ') {
         _this.candy.push(new pt_1.Pt(x, y));
       }
     });
@@ -996,9 +1001,9 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.drawArc = exports.drawEllipse = exports.drawEye = exports.drawGhost = exports.drawPacMan = void 0;
 
-var drawPacMan = function drawPacMan(ctx, pacman) {
-  var size = 8;
-  var pos = pacman.pos.add(1.5, 1.4).scale(10);
+var drawPacMan = function drawPacMan(ctx, pacman, N) {
+  var size = N * 8 / 10;
+  var pos = pacman.pos.add(1.5, 1.4).scale(N);
   var mouthOpenPerc = pacman.mouthOpenPerc;
   var angle = pacman.dirV.getAngle();
   ctx.translate(pos.x, pos.y);
@@ -1022,9 +1027,9 @@ var drawPacMan = function drawPacMan(ctx, pacman) {
 
 exports.drawPacMan = drawPacMan;
 
-var drawGhost = function drawGhost(ctx, ghost) {
-  var size = 16;
-  var pos = ghost.pos.add(0.45 + 1, 0.15 + 1).scale(10);
+var drawGhost = function drawGhost(ctx, ghost, N) {
+  var size = N * 16 / 10;
+  var pos = ghost.pos.add(0.8, 0.6).scale(N);
   ctx.translate(pos.x, pos.y);
   ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
   exports.drawArc(ctx, 0, 0, size * 0.5, 180, 360);
@@ -1076,7 +1081,208 @@ var drawArc = function drawArc(ctx, x, y, radius, startAngle, endAngle) {
 };
 
 exports.drawArc = drawArc;
-},{}],"pacman/index.ts":[function(require,module,exports) {
+},{}],"pacman/game_controls.ts":[function(require,module,exports) {
+"use strict";
+
+var __extends = this && this.__extends || function () {
+  var _extendStatics = function extendStatics(d, b) {
+    _extendStatics = Object.setPrototypeOf || {
+      __proto__: []
+    } instanceof Array && function (d, b) {
+      d.__proto__ = b;
+    } || function (d, b) {
+      for (var p in b) {
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+      }
+    };
+
+    return _extendStatics(d, b);
+  };
+
+  return function (d, b) {
+    _extendStatics(d, b);
+
+    function __() {
+      this.constructor = d;
+    }
+
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+  };
+}();
+
+var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
+  if (k2 === undefined) k2 = k;
+  Object.defineProperty(o, k2, {
+    enumerable: true,
+    get: function get() {
+      return m[k];
+    }
+  });
+} : function (o, m, k, k2) {
+  if (k2 === undefined) k2 = k;
+  o[k2] = m[k];
+});
+
+var __setModuleDefault = this && this.__setModuleDefault || (Object.create ? function (o, v) {
+  Object.defineProperty(o, "default", {
+    enumerable: true,
+    value: v
+  });
+} : function (o, v) {
+  o["default"] = v;
+});
+
+var __importStar = this && this.__importStar || function (mod) {
+  if (mod && mod.__esModule) return mod;
+  var result = {};
+  if (mod != null) for (var k in mod) {
+    if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+  }
+
+  __setModuleDefault(result, mod);
+
+  return result;
+};
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ButtonControls = exports.setupKeyboardControls = exports.Controller = void 0;
+
+var LReact = __importStar(require("../l_react"));
+
+var Controller =
+/** @class */
+function () {
+  function Controller() {
+    this.buttons = new Map();
+  }
+
+  Controller.prototype.isPressed = function (d) {
+    return !!this.buttons.get(d);
+  };
+
+  Controller.prototype.reset = function () {
+    this.buttons.clear();
+  };
+
+  Controller.prototype.setFromKeyboard = function (key, on) {
+    var d = Controller.keyboardKeyToDir(key);
+
+    if (d) {
+      this.setV(d, on);
+    }
+  };
+
+  Controller.prototype.setV = function (d, on) {
+    this.buttons.set(d, on);
+  };
+
+  Controller.keyboardKeyToDir = function (key) {
+    switch (key) {
+      case 'ArrowUp':
+        return 'up';
+
+      case 'ArrowRight':
+        return 'right';
+
+      case 'ArrowLeft':
+        return 'left';
+
+      case 'ArrowDown':
+        return 'down';
+    }
+
+    return undefined;
+  };
+
+  return Controller;
+}();
+
+exports.Controller = Controller;
+
+var setupKeyboardControls = function setupKeyboardControls(controller) {
+  var keyDownListener = function keyDownListener(e) {
+    controller.setFromKeyboard(e.key, true);
+  };
+
+  document.body.addEventListener('keydown', keyDownListener);
+
+  var keyUpListener = function keyUpListener(e) {
+    controller.setFromKeyboard(e.key, false);
+  };
+
+  document.body.addEventListener('keyup', keyUpListener);
+  return function () {
+    document.body.removeEventListener('keydown', keyDownListener);
+    document.body.removeEventListener('keyup', keyUpListener);
+  };
+};
+
+exports.setupKeyboardControls = setupKeyboardControls;
+var BUTTON_SIZE = 80;
+
+var BlankDiv = function BlankDiv() {
+  return LReact.Node('div');
+};
+
+var ButtonControls =
+/** @class */
+function (_super) {
+  __extends(ButtonControls, _super);
+
+  function ButtonControls() {
+    var _this = _super !== null && _super.apply(this, arguments) || this;
+
+    _this.dirToEmoji = new Map([['up', '⬆️'], ['left', '⬅️'], ['right', '➡️'], ['down', '⬇️']]);
+    return _this;
+  }
+
+  ButtonControls.prototype.render = function () {
+    var _this = this;
+
+    var controller = this.props.controller;
+    var directionsList = Array.from(this.dirToEmoji.keys());
+    var buttons = directionsList.map(function (d) {
+      var _a;
+
+      return LReact.Node('button', {
+        onMouseDown: function onMouseDown(e) {
+          controller.setV(d, true);
+          e.preventDefault();
+          console.log('mouse down', d);
+        },
+        onMouseUp: function onMouseUp(e) {
+          controller.setV(d, false);
+          e.preventDefault();
+          console.log('mouse up', d);
+        },
+        style: {
+          width: BUTTON_SIZE + "px",
+          height: BUTTON_SIZE + "px",
+          fontSize: '50px',
+          userSelect: 'none'
+        }
+      }, [LReact.Text((_a = _this.dirToEmoji.get(d)) !== null && _a !== void 0 ? _a : d)]);
+    });
+    return LReact.Node('div', {
+      style: {
+        width: BUTTON_SIZE * 3 + "px",
+        height: BUTTON_SIZE * 3 + "px",
+        border: '1px solid red',
+        display: 'grid',
+        gridAutoFlow: 'row',
+        gridTemplateRows: "repeat(3, " + BUTTON_SIZE + "px)",
+        gridTemplateColumns: "repeat(3, " + BUTTON_SIZE + "px)"
+      }
+    }, [LReact.Node(BlankDiv), buttons[0], LReact.Node(BlankDiv), buttons[1], LReact.Node(BlankDiv), buttons[2], LReact.Node(BlankDiv), buttons[3], LReact.Node(BlankDiv)]);
+  };
+
+  return ButtonControls;
+}(LReact.Component);
+
+exports.ButtonControls = ButtonControls;
+},{"../l_react":"l_react.ts"}],"pacman/index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -1169,6 +1375,8 @@ var render_1 = require("./render");
 var Node = LReact.Node,
     Text = LReact.Text;
 
+var game_controls_1 = require("./game_controls");
+
 var GameComponent =
 /** @class */
 function (_super) {
@@ -1177,6 +1385,7 @@ function (_super) {
   function GameComponent(props) {
     var _this = _super.call(this, props) || this;
 
+    _this.controller = new game_controls_1.Controller();
     _this.level = game_1.Level.createLevel1();
     _this.game = new game_1.Game(_this.level);
     _this.state = {
@@ -1192,16 +1401,20 @@ function (_super) {
   GameComponent.prototype.render = function () {
     var _this = this;
 
-    var N = 10;
-    return Node('div', {}, [Text(this.state.state), Node(LevelGameContainer, {
-      N: 10,
-      w: this.level.w,
-      h: this.level.h
-    }, [Node(RenderedLevel, {
-      level: this.level
+    var windowSize = this.state.windowSize;
+    var s = Math.min(windowSize.w - 16, 400);
+    var size = {
+      w: s,
+      h: s + 10
+    };
+    var gameRenderScale = size.w / (this.level.w + 2);
+    return Node('div', {}, [Text(this.state.state), Node(LevelGameContainer, size, [Node(RenderedLevel, {
+      level: this.level,
+      N: gameRenderScale
     }), this.state.state === 'not-started' ? Node(AnimatedGame, {
       game: this.game,
-      paused: this.state.state === 'paused'
+      gameRenderScale: gameRenderScale,
+      controller: this.controller
     }, []) : Text('no game')]), Node('button', {
       onClick: function onClick() {
         if (_this.state.state === 'not-started') {
@@ -1214,7 +1427,9 @@ function (_super) {
           });
         }
       }
-    }, [Text('stop')])]);
+    }, [Text('stop')]), Node(game_controls_1.ButtonControls, {
+      controller: this.controller
+    })]);
   };
 
   return GameComponent;
@@ -1230,8 +1445,6 @@ function (_super) {
   function AnimatedGame(props) {
     var _this = _super.call(this, props) || this;
 
-    _this.keys = new Map();
-
     _this.componentDidMount = function () {
       console.log('ANIMATED GAME MOUNT');
     };
@@ -1241,11 +1454,11 @@ function (_super) {
 
       (_a = _this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(_this);
 
+      _this.props.controller.reset();
+
       if (_this.animId) {
         cancelAnimationFrame(_this.animId.id);
       }
-
-      console.log('cleaned it up');
     };
 
     _this.canvasSet = function (canvas) {
@@ -1257,61 +1470,66 @@ function (_super) {
       _this.setupEventListeners();
     };
 
-    _this.canvasPixels = new pt_1.Pt(props.game.level.w + 1, props.game.level.h);
+    _this.canvasPixels = new pt_1.Pt(props.game.level.w, props.game.level.h);
     return _this;
   }
 
+  Object.defineProperty(AnimatedGame.prototype, "canvasSize", {
+    get: function get() {
+      var gameRenderScale = this.props.gameRenderScale;
+      var level = this.props.game.level;
+      var w = (level.w + 1) * gameRenderScale;
+      var h = (level.h + 1) * gameRenderScale;
+      return {
+        w: w,
+        h: h
+      };
+    },
+    enumerable: false,
+    configurable: true
+  });
+
   AnimatedGame.prototype.render = function () {
-    var level = this.props.game.level;
+    var gameRenderScale = this.props.gameRenderScale;
+    var canvasSize = this.canvasSize;
     return Node('canvas', {
       ref: this.canvasSet,
-      width: this.canvasPixels.x * 10,
-      height: this.canvasPixels.y * 10,
+      width: canvasSize.w,
+      height: canvasSize.h,
       style: {
-        width: (level.w + 1) * 10 + "px",
-        height: level.h * 10 + "px",
+        width: canvasSize.w + "px",
+        height: canvasSize.h + "px",
         position: 'absolute',
-        zIndex: 2
+        zIndex: 2,
+        top: gameRenderScale * 0.5 + 'px',
+        left: gameRenderScale * 0.5 + 'px'
       }
     });
   };
 
   AnimatedGame.prototype.setupEventListeners = function () {
-    var _this = this;
-
     var _a;
 
     (_a = this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(this);
-
-    var keyDownListener = function keyDownListener(e) {
-      if (!_this.props.paused) _this.keys.set(e.key, true);
-    };
-
-    document.body.addEventListener('keydown', keyDownListener);
-
-    var keyUpListener = function keyUpListener(e) {
-      if (!_this.props.paused) _this.keys.set(e.key, false);
-    };
-
-    document.body.addEventListener('keyup', keyUpListener);
-
-    this.killEventListeners = function () {
-      document.body.removeEventListener('keydown', keyDownListener);
-      document.body.removeEventListener('keyup', keyUpListener);
-    };
+    var controller = this.props.controller;
+    controller.reset();
+    this.killEventListeners = game_controls_1.setupKeyboardControls(this.props.controller);
   };
 
   AnimatedGame.prototype.getPlayerInputDir = function () {
-    if (this.keys.get('ArrowUp')) return 'up';
-    if (this.keys.get('ArrowRight')) return 'right';
-    if (this.keys.get('ArrowLeft')) return 'left';
-    if (this.keys.get('ArrowDown')) return 'down';
+    console.log('RIGHT', this.props.controller.isPressed('right'));
+
+    for (var _i = 0, DIRECTIONS_1 = game_1.DIRECTIONS; _i < DIRECTIONS_1.length; _i++) {
+      var d = DIRECTIONS_1[_i];
+      if (this.props.controller.isPressed(d)) return d;
+    }
   };
 
   AnimatedGame.prototype.gameLoop = function () {
     var _this = this;
 
     var prevDelta = 0;
+    var N = this.props.gameRenderScale;
 
     var loop = function loop(delta) {
       var ctx = _this.ctx;
@@ -1320,16 +1538,19 @@ function (_super) {
       var dt = delta - prevDelta;
       prevDelta = delta;
       game.tick(dt, _this.getPlayerInputDir());
-      ctx.clearRect(0, 0, _this.canvasPixels.x * 10, _this.canvasPixels.y * 10);
+      var canvasSize = _this.canvasSize;
+      ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
+      ctx.translate(-N * 0.6, -N * 0.6);
       game.candy.forEach(function (c) {
-        var p = c.add(1.5, 1.5).scale(10);
+        var p = c.add(1.5, 1.5).scale(N);
         ctx.fillStyle = 'pink';
         render_1.drawEllipse(ctx, p.x, p.y, 2, 2);
       });
-      render_1.drawPacMan(ctx, game.pacman);
+      render_1.drawPacMan(ctx, game.pacman, N);
       game.ghosts.forEach(function (g) {
-        return render_1.drawGhost(ctx, g);
+        return render_1.drawGhost(ctx, g, N);
       });
+      ctx.resetTransform();
       _this.animId = {
         id: requestAnimationFrame(loop)
       };
@@ -1346,27 +1567,27 @@ function (_super) {
 var LevelGameContainer = function LevelGameContainer(_a) {
   var w = _a.w,
       h = _a.h,
-      N = _a.N,
       children = _a.children;
   return Node('div', {
     style: {
       backgroundColor: 'lightblue',
-      padding: '16px',
       display: 'grid',
-      placeItems: 'center'
+      placeItems: 'center',
+      overflow: 'hidden',
+      boxSizing: 'border-box'
     }
   }, [Node('div', {
     style: {
-      width: (w + 2) * N + "px",
-      height: (h + 2) * N + "px",
+      width: w + "px",
+      height: h + "px",
       position: 'relative'
     }
   }, children)]);
 };
 
 function RenderedLevel(_a) {
-  var level = _a.level;
-  var N = 10;
+  var level = _a.level,
+      N = _a.N;
   var thick = 2;
   var halfThick = thick * 0.5;
   var offset = new pt_1.Pt(N, N);
@@ -1376,7 +1597,7 @@ function RenderedLevel(_a) {
     for (var x = 0; x < level.w; x++) {
       if (level.isPath(x, y)) {
         var center = new pt_1.Pt(x + 0.5, y + 0.5);
-        var topLeft = center.add(-thick * 0.5, -thick * 0.5);
+        var topLeft = center.add(-halfThick, -halfThick);
         blocks.push(Node(Block, {
           top: topLeft.y * N + offset.y,
           left: topLeft.x * N + offset.x,
@@ -1409,7 +1630,7 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts"}],"index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -1532,7 +1753,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51709" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57882" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
