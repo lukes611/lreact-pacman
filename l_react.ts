@@ -15,7 +15,7 @@ export class VElem {
     constructor(type: string, props: object = {}, children: VElem[] = [], value?: string) {
         this.type = type;
         this.props = props;
-        this.children = children;
+        this.children = children.filter(x => x !== null);
         this.isTextNode = this.type === 'text-node';
         this.value = value;
     }

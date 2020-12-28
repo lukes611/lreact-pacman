@@ -36,7 +36,7 @@ export const drawGhost = (ctx: CanvasRenderingContext2D, ghost: Ghost, N: number
     drawArc(ctx, 0, 0, size * 0.5, 180, 360);
     
     ctx.beginPath();
-    ctx.rect(-size * 0.5, 0, size, size * 0.5);
+    ctx.rect(-size * 0.5, -1, size, size * 0.5+1);
     ctx.closePath();
     ctx.fill();
     

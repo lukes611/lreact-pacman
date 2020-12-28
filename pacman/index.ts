@@ -40,6 +40,8 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const { windowSize } = this.state;
 
         const s = Math.min(windowSize.w - 16, 600);
+
+        const useMobileControls = windowSize.w < 400;
         
         const size = {
             w: s,
@@ -66,7 +68,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     }
                 },
             }, [Text('stop')]),
-            Node(ButtonControls, { controller: this.controller }),
+            useMobileControls ? Node(ButtonControls, { controller: this.controller }) : null,
         ]);
     }
 }

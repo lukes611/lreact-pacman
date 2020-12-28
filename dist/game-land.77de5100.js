@@ -156,7 +156,9 @@ function () {
     this.isRoot = false;
     this.type = type;
     this.props = props;
-    this.children = children;
+    this.children = children.filter(function (x) {
+      return x !== null;
+    });
     this.isTextNode = this.type === 'text-node';
     this.value = value;
   }
@@ -1040,7 +1042,7 @@ var drawGhost = function drawGhost(ctx, ghost, N) {
   ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
   exports.drawArc(ctx, 0, 0, size * 0.5, 180, 360);
   ctx.beginPath();
-  ctx.rect(-size * 0.5, 0, size, size * 0.5);
+  ctx.rect(-size * 0.5, -1, size, size * 0.5 + 1);
   ctx.closePath();
   ctx.fill();
 
@@ -1416,6 +1418,7 @@ function (_super) {
 
     var windowSize = this.state.windowSize;
     var s = Math.min(windowSize.w - 16, 600);
+    var useMobileControls = windowSize.w < 400;
     var size = {
       w: s,
       h: s + 10
@@ -1440,9 +1443,9 @@ function (_super) {
           });
         }
       }
-    }, [Text('stop')]), Node(game_controls_1.ButtonControls, {
+    }, [Text('stop')]), useMobileControls ? Node(game_controls_1.ButtonControls, {
       controller: this.controller
-    })]);
+    }) : null]);
   };
 
   return GameComponent;
