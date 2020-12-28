@@ -34,7 +34,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         };
     }
 
-    componentDidMount = () => {
+    componentDidMount() {
         this.windowResizeListener = () => {
             const w = window.innerWidth;
             const h = window.innerHeight;
@@ -45,13 +45,14 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
             }
         };
         window.addEventListener('resize', this.windowResizeListener);
-    };
-    componentDidUnmount = () => {
+    }
+
+    componentDidUnmount(){
         if (this.windowResizeListener) {
             window.removeEventListener('resize', this.windowResizeListener);
             this.windowResizeListener = undefined;
         }
-    };
+    }
 
     startGame = (difficulty: Difficulty) => {
         this.game.startNewGame(difficulty);
@@ -73,7 +74,11 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
             }, [
                 Element(LiveGameScore, { g: this.game }),
                 Element('button', {
+                    style: {
+                        display: this.state.state === 'playing' ? 'block' : 'none',
+                    },
                     onClick: () => {
+                        if (this.game.gameState !== 'playing') return;
                         this.game.gameState = 'paused';
                         this.setState({ state: 'paused' });
                     },
@@ -343,7 +348,6 @@ const StartGameMenu = ({
                     if (d === difficulty) {
                         e.target.checked = true;
                     } else {
-                        console.log('set diff');
                         setDifficulty(d);
                     }
                 },
@@ -438,7 +442,6 @@ const LevelGameContainer = ({ w, h, children }: {
     h: number,
     children?: LReact._Element[],
 }) => {
-    console.log('children', children);
     return Element('div', {
         style: {
             backgroundColor: 'lightblue',

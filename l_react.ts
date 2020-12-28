@@ -55,7 +55,8 @@ export class _Element {
 
     similar(e: _Element): boolean {
         if (e.maker.kind !== this.maker.kind) return false;
-        // if (this.getMakerValue() !== e.getMakerValue()) return false;
+        if (e.maker.kind === 'string') return true;
+        if (this.getMakerValue() !== e.getMakerValue()) return false;
         if (this.children.length !== e.children.length) return false;
         return true;
     }

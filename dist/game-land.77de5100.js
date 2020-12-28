@@ -223,8 +223,9 @@ function () {
   };
 
   _Element.prototype.similar = function (e) {
-    if (e.maker.kind !== this.maker.kind) return false; // if (this.getMakerValue() !== e.getMakerValue()) return false;
-
+    if (e.maker.kind !== this.maker.kind) return false;
+    if (e.maker.kind === 'string') return true;
+    if (this.getMakerValue() !== e.getMakerValue()) return false;
     if (this.children.length !== e.children.length) return false;
     return true;
   };
@@ -1609,31 +1610,6 @@ function (_super) {
 
     _this.controller = new game_controls_1.Controller();
 
-    _this.componentDidMount = function () {
-      _this.windowResizeListener = function () {
-        var w = window.innerWidth;
-        var h = window.innerHeight;
-
-        if (w !== _this.state.windowSize.w || h !== _this.state.windowSize.h) {
-          _this.setState({
-            windowSize: {
-              w: w,
-              h: h
-            }
-          });
-        }
-      };
-
-      window.addEventListener('resize', _this.windowResizeListener);
-    };
-
-    _this.componentDidUnmount = function () {
-      if (_this.windowResizeListener) {
-        window.removeEventListener('resize', _this.windowResizeListener);
-        _this.windowResizeListener = undefined;
-      }
-    };
-
     _this.startGame = function (difficulty) {
       _this.game.startNewGame(difficulty);
 
@@ -1674,6 +1650,33 @@ function (_super) {
     return _this;
   }
 
+  GameComponent.prototype.componentDidMount = function () {
+    var _this = this;
+
+    this.windowResizeListener = function () {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+
+      if (w !== _this.state.windowSize.w || h !== _this.state.windowSize.h) {
+        _this.setState({
+          windowSize: {
+            w: w,
+            h: h
+          }
+        });
+      }
+    };
+
+    window.addEventListener('resize', this.windowResizeListener);
+  };
+
+  GameComponent.prototype.componentDidUnmount = function () {
+    if (this.windowResizeListener) {
+      window.removeEventListener('resize', this.windowResizeListener);
+      this.windowResizeListener = undefined;
+    }
+  };
+
   GameComponent.prototype.render = function () {
     var _this = this;
 
@@ -1691,7 +1694,11 @@ function (_super) {
     }, [Element(LiveGameScore, {
       g: this.game
     }), Element('button', {
+      style: {
+        display: this.state.state === 'playing' ? 'block' : 'none'
+      },
       onClick: function onClick() {
+        if (_this.game.gameState !== 'playing') return;
         _this.game.gameState = 'paused';
 
         _this.setState({
@@ -1988,7 +1995,6 @@ var StartGameMenu = function StartGameMenu(_a) {
         if (d === difficulty) {
           e.target.checked = true;
         } else {
-          console.log('set diff');
           setDifficulty(d);
         }
       }
@@ -2075,7 +2081,6 @@ var LevelGameContainer = function LevelGameContainer(_a) {
   var w = _a.w,
       h = _a.h,
       children = _a.children;
-  console.log('children', children);
   return Element('div', {
     style: {
       backgroundColor: 'lightblue',
