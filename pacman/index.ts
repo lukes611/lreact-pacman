@@ -31,6 +31,12 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
             },
         };
     }
+
+    startGame = (difficulty: Difficulty) => {
+        this.game.startNewGame(difficulty);
+        this.setState({ state: this.game.gameState });
+    };
+
     render() {
         const useMobileControls = this.useMobileControls;
         const { gameRenderScale, size } = this.gameRenderScaleAndSize;
@@ -80,14 +86,10 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
             case 'playing':
                 return Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller }, []);
             case 'not-started':
-                // return Node('button', {
-                //     onClick: () => {
-                //         this.game.startNewGame('easy');
-                //         this.setState({ state: this.game.gameState })
-                //     },
-                // }, [Text('start game')]);
                 return Node(MenuOverlay, {}, [
-                    Node(StartGameMenu),
+                    Node(StartGameMenu, {
+                        startGame: this.startGame,
+                    }),
                 ]);
             case 'game-over':
                 return Node('div', {}, [Text('you lost')]);
@@ -216,11 +218,48 @@ const MenuOverlay = ({
     }, children);
 };
 
-const StartGameMenu = ({}: {
-    
+
+const StartGameMenu = ({
+    startGame,
+}: {
+    startGame: (difficulty: Difficulty) => void,
 }) => {
 
     const [difficulty, setDifficulty] = LReact.useState<Difficulty>('easy');
+
+    const CheckBox = ({
+        d,
+    }: {
+        d: Difficulty,
+    }) => {
+        return Node('div', {
+            style: {
+                display: 'grid',
+                gridAutoFlow: 'column',
+                gridGap: '16px',
+                alignItems: 'center',
+                gridTemplateColumns: '200px 1fr',
+            },
+        }, [
+            Node('label', {
+                style: {
+                    fontSize: '20px',
+                },
+            }, [Text(d)]),
+            Node('input', {
+                type: 'checkbox',
+                checked: difficulty === d,
+                onChange: e => {
+                    if (d === difficulty) {
+                        e.target.checked = true;
+                    } else {
+                        console.log('set diff');
+                        setDifficulty(d);
+                    }
+                },
+            }),
+        ]);
+    };
 
     return Node('div', {
         style: {
@@ -232,17 +271,27 @@ const StartGameMenu = ({}: {
             gridAutoFlow: 'row',
             justifyItems: 'center',
             alignItems: 'center',
+            gridGap: '24px',
+            alignContent: 'center',
+            gridTemplateRows: 'repeat(4, min-content)',
             background: 'rgba(0,0,0,0.5)',
         },
     }, [
-        Text('start game'),
+        Text(`start game`),
+        Node('div', { style: { display: 'grid', gridAutoFlow: 'row', gridGap: '8px' } }, [
+            Node(CheckBox, { d: 'easy'  }),
+            Node(CheckBox, { d: 'medium'  }),
+            Node(CheckBox, { d: 'hard'  }),
+        ]),
         Node('button', {
-            onClick: () => {
-                if (difficulty === 'medium') {
-                    setDifficulty('easy');
-                } else setDifficulty('medium');
+            style: {
+                fontSize: '40px',
+                width: '100%',
+                maxWidth: '250px',
+                cursor: 'pointer',
             },
-        }, [Text('button!')]),
+            onClick: () => startGame(difficulty),
+        }, [Text('Play')]),
     ]);
 };
 

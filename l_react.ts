@@ -88,15 +88,46 @@ class UseStateSystem<T> {
     }
 }
 
-let currentUseStateSystem: UseStateSystem<any> | undefined = undefined;
+class CurrentUseStateSystem {
+    _list: (UseStateSystem<any> | undefined)[] = [undefined];
+    
+    takeout() {
+        this._list.push(undefined);
+    }
+
+    get() {
+        return this._list[this.lastIndex];
+    }
+
+    get lastIndex() {
+        return this._list.length - 1;
+    }
+
+    useSlot(v: any) {
+        if (this._list[this.lastIndex]) {
+            return this._list[this.lastIndex];
+        }
+        const x = new UseStateSystem(v);
+        this._list[this.lastIndex] = x;
+        return x;
+    }
+
+    useUseStateSys(sys: UseStateSystem<any>) {
+        this.takeout();
+        this._list[this.lastIndex] = sys;
+    }
+
+    pop() {
+        if (this._list.length >= 1) this._list.pop();
+        else this._list[0] = undefined;
+    }
+}
+
+const currentUseStateSystem = new CurrentUseStateSystem();
 
 export const useState = <T>(state: T): UseStateConfig<T> => {
 
-    const sys = currentUseStateSystem
-        ? currentUseStateSystem
-        : new UseStateSystem(state);
-
-    currentUseStateSystem = sys;
+    const sys = currentUseStateSystem.useSlot(state);
 
     return [
         sys.v,
@@ -135,12 +166,15 @@ function createVElement<P extends object, S extends object>(node: ComponentType<
             ...props,
             children,
         };
+        // if already a currentUseStateSystem, save it
+        currentUseStateSystem.takeout();
        const vnode = F(p);
-        if (currentUseStateSystem) {
-            const sys = currentUseStateSystem;
-            currentUseStateSystem.repaint = () => repaintFunctionComponent(F, sys, vnode, p);
-            currentUseStateSystem = undefined;
+       const useStateSys = currentUseStateSystem.get();
+        if (useStateSys) {
+            const sys = useStateSys;
+            sys.repaint = () => repaintFunctionComponent(F, sys, vnode, p);
         }
+        currentUseStateSystem.pop();
        return vnode;
     }
     return new VElem(node, props, children);
@@ -165,10 +199,10 @@ function repaint<P extends object, S extends object>(c: Component<P, S>) {
     }
 }
 
-function repaintFunctionComponent<P extends object, S extends object>(c: (props: P) => VElem, useStateSystem: UseStateSystem<any>, oldTree: VElem, props: P) {
-    currentUseStateSystem = useStateSystem;
+function repaintFunctionComponent<P extends object>(c: (props: P) => VElem, useStateSystem: UseStateSystem<any>, oldTree: VElem, props: P) {
+    currentUseStateSystem.useUseStateSys(useStateSystem);
     const newTree = c(props);
-    currentUseStateSystem = undefined;
+    currentUseStateSystem.pop();
     newTree.componentDidMount = oldTree.componentDidMount;
     newTree.componentDidUnmount = oldTree.componentDidUnmount;
     const parent = oldTree?._parent;
@@ -272,7 +306,7 @@ function assignProps(element: HTMLElement, props: Record<string, any>) {
     if (props.onTouchEnd) element.ontouchend = (e) => props.onTouchEnd(e);
     if (props.onChange) element.oninput = (e) => props.onChange(e);
 
-    const rawAttributes = new Set(['width', 'height', 'href', 'id', 'value']);
+    const rawAttributes = new Set(['width', 'height', 'href', 'id', 'value', 'type', 'checked']);
     Object.keys(props).forEach(k => {
         if (rawAttributes.has(k)) {
             element[k] = props[k];

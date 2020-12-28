@@ -240,11 +240,55 @@ function () {
   return UseStateSystem;
 }();
 
-var currentUseStateSystem = undefined;
+var CurrentUseStateSystem =
+/** @class */
+function () {
+  function CurrentUseStateSystem() {
+    this._list = [undefined];
+  }
+
+  CurrentUseStateSystem.prototype.takeout = function () {
+    this._list.push(undefined);
+  };
+
+  CurrentUseStateSystem.prototype.get = function () {
+    return this._list[this.lastIndex];
+  };
+
+  Object.defineProperty(CurrentUseStateSystem.prototype, "lastIndex", {
+    get: function get() {
+      return this._list.length - 1;
+    },
+    enumerable: false,
+    configurable: true
+  });
+
+  CurrentUseStateSystem.prototype.useSlot = function (v) {
+    if (this._list[this.lastIndex]) {
+      return this._list[this.lastIndex];
+    }
+
+    var x = new UseStateSystem(v);
+    this._list[this.lastIndex] = x;
+    return x;
+  };
+
+  CurrentUseStateSystem.prototype.useUseStateSys = function (sys) {
+    this.takeout();
+    this._list[this.lastIndex] = sys;
+  };
+
+  CurrentUseStateSystem.prototype.pop = function () {
+    if (this._list.length >= 1) this._list.pop();else this._list[0] = undefined;
+  };
+
+  return CurrentUseStateSystem;
+}();
+
+var currentUseStateSystem = new CurrentUseStateSystem();
 
 var useState = function useState(state) {
-  var sys = currentUseStateSystem ? currentUseStateSystem : new UseStateSystem(state);
-  currentUseStateSystem = sys;
+  var sys = currentUseStateSystem.useSlot(state);
   return [sys.v, function (v) {
     return sys.set(v);
   }];
@@ -286,20 +330,22 @@ function createVElement(node, props, children) {
 
     var p_1 = __assign(__assign({}, props), {
       children: children
-    });
+    }); // if already a currentUseStateSystem, save it
 
+
+    currentUseStateSystem.takeout();
     var vnode_1 = F_1(p_1);
+    var useStateSys = currentUseStateSystem.get();
 
-    if (currentUseStateSystem) {
-      var sys_1 = currentUseStateSystem;
+    if (useStateSys) {
+      var sys_1 = useStateSys;
 
-      currentUseStateSystem.repaint = function () {
+      sys_1.repaint = function () {
         return repaintFunctionComponent(F_1, sys_1, vnode_1, p_1);
       };
-
-      currentUseStateSystem = undefined;
     }
 
+    currentUseStateSystem.pop();
     return vnode_1;
   }
 
@@ -326,9 +372,9 @@ function repaint(c) {
 }
 
 function repaintFunctionComponent(c, useStateSystem, oldTree, props) {
-  currentUseStateSystem = useStateSystem;
+  currentUseStateSystem.useUseStateSys(useStateSystem);
   var newTree = c(props);
-  currentUseStateSystem = undefined;
+  currentUseStateSystem.pop();
   newTree.componentDidMount = oldTree.componentDidMount;
   newTree.componentDidUnmount = oldTree.componentDidUnmount;
   var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
@@ -460,7 +506,7 @@ function assignProps(element, props) {
   if (props.onChange) element.oninput = function (e) {
     return props.onChange(e);
   };
-  var rawAttributes = new Set(['width', 'height', 'href', 'id', 'value']);
+  var rawAttributes = new Set(['width', 'height', 'href', 'id', 'value', 'type', 'checked']);
   Object.keys(props).forEach(function (k) {
     if (rawAttributes.has(k)) {
       element[k] = props[k];
@@ -1500,6 +1546,15 @@ function (_super) {
     var _this = _super.call(this, props) || this;
 
     _this.controller = new game_controls_1.Controller();
+
+    _this.startGame = function (difficulty) {
+      _this.game.startNewGame(difficulty);
+
+      _this.setState({
+        state: _this.game.gameState
+      });
+    };
+
     _this.level = game_1.Level.createLevel1();
     _this.game = new game_1.Game(_this.level);
     _this.state = {
@@ -1575,13 +1630,9 @@ function (_super) {
         }, []);
 
       case 'not-started':
-        // return Node('button', {
-        //     onClick: () => {
-        //         this.game.startNewGame('easy');
-        //         this.setState({ state: this.game.gameState })
-        //     },
-        // }, [Text('start game')]);
-        return Node(MenuOverlay, {}, [Node(StartGameMenu)]);
+        return Node(MenuOverlay, {}, [Node(StartGameMenu, {
+          startGame: this.startGame
+        })]);
 
       case 'game-over':
         return Node('div', {}, [Text('you lost')]);
@@ -1734,9 +1785,39 @@ var MenuOverlay = function MenuOverlay(_a) {
 };
 
 var StartGameMenu = function StartGameMenu(_a) {
+  var startGame = _a.startGame;
+
   var _b = LReact.useState('easy'),
       difficulty = _b[0],
       setDifficulty = _b[1];
+
+  var CheckBox = function CheckBox(_a) {
+    var d = _a.d;
+    return Node('div', {
+      style: {
+        display: 'grid',
+        gridAutoFlow: 'column',
+        gridGap: '16px',
+        alignItems: 'center',
+        gridTemplateColumns: '200px 1fr'
+      }
+    }, [Node('label', {
+      style: {
+        fontSize: '20px'
+      }
+    }, [Text(d)]), Node('input', {
+      type: 'checkbox',
+      checked: difficulty === d,
+      onChange: function onChange(e) {
+        if (d === difficulty) {
+          e.target.checked = true;
+        } else {
+          console.log('set diff');
+          setDifficulty(d);
+        }
+      }
+    })]);
+  };
 
   return Node('div', {
     style: {
@@ -1748,15 +1829,34 @@ var StartGameMenu = function StartGameMenu(_a) {
       gridAutoFlow: 'row',
       justifyItems: 'center',
       alignItems: 'center',
+      gridGap: '24px',
+      alignContent: 'center',
+      gridTemplateRows: 'repeat(4, min-content)',
       background: 'rgba(0,0,0,0.5)'
     }
-  }, [Text('start game'), Node('button', {
-    onClick: function onClick() {
-      if (difficulty === 'medium') {
-        setDifficulty('easy');
-      } else setDifficulty('medium');
+  }, [Text("start game"), Node('div', {
+    style: {
+      display: 'grid',
+      gridAutoFlow: 'row',
+      gridGap: '8px'
     }
-  }, [Text('button!')])]);
+  }, [Node(CheckBox, {
+    d: 'easy'
+  }), Node(CheckBox, {
+    d: 'medium'
+  }), Node(CheckBox, {
+    d: 'hard'
+  })]), Node('button', {
+    style: {
+      fontSize: '40px',
+      width: '100%',
+      maxWidth: '250px',
+      cursor: 'pointer'
+    },
+    onClick: function onClick() {
+      return startGame(difficulty);
+    }
+  }, [Text('Play')])]);
 };
 
 var LevelGameContainer = function LevelGameContainer(_a) {
