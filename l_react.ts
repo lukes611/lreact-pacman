@@ -220,7 +220,7 @@ function repaintFunctionComponent<P extends object>(c: (props: P) => VElem, useS
 export function Node<P extends object, S extends object>(type: ComponentType<P, S>, props: P = {} as P, children: VElem[] = []) {
     return createVElement(type, props, children);
 }
-//hmm not sure
+
 export function modifyTree(tree: VElem, parent?: VElem, prevTree?: VElem, updateDomIsRemount?: boolean) {
     const { props, children, type } = tree;
     if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {

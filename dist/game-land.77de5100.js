@@ -404,7 +404,7 @@ function Node(type, props, children) {
   return createVElement(type, props, children);
 }
 
-exports.Node = Node; //hmm not sure
+exports.Node = Node;
 
 function modifyTree(tree, parent, prevTree, updateDomIsRemount) {
   var _a, _b;
