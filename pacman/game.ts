@@ -380,26 +380,62 @@ export class Ghost extends Agent {
 
 }
 
+export type GameState =
+    | 'not-started'
+    | 'playing'
+    | 'game-over'
+    | 'you-won'
+    | 'paused';
+
+export type Difficulty =
+    | 'easy'
+    | 'medium'
+    | 'hard';
+
+const GHOST_COLORS = [
+    'red',
+    'blue',
+    'yellow',
+    'purple',
+    'orange',
+    'firebrick',
+];
+
+const difficultyToGhostCount: Record<Difficulty, number> = {
+    easy: 4,
+    medium: 5,
+    hard: 6,
+};
+
 export class Game {
     pacman: Pacman;
     ghosts: Ghost[];
     candy: Pt[] = [];
+    gameState: GameState = 'not-started';
     constructor(public level: Level) {
         this.pacman = Pacman.create(level);
-        this.ghosts = [
-            Ghost.create(level, 'red'),
-            Ghost.create(level, 'blue'),
-            Ghost.create(level, 'yellow'),
-            Ghost.create(level, 'purple'),
-        ];
+        this.ghosts = [];
+    }
+
+    startNewGame(difficulty: Difficulty) {
+        // reset pacman
+        this.pacman = Pacman.create(this.level);
+        // reset ghosts
+        const ghostCount = difficultyToGhostCount[difficulty];
+        this.ghosts = GHOST_COLORS
+            .slice(0, ghostCount)
+            .map(color => Ghost.create(this.level, color));
+        // reset candy
         this.level.forEach((v, x, y) => {
             if (v && v !== ' ') {
                 this.candy.push(new Pt(x, y));
             }
         });
+        this.gameState = 'playing';
     }
 
     tick(dt: number, playerInput?: Dir) {
+        if (this.gameState !== 'playing') return;
         this.pacman.tick(dt, playerInput);
         this.ghosts.forEach(g => g.tick(dt, this.pacman.pos));
         this.candy = this.candy.filter(c => {

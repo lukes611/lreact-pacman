@@ -139,7 +139,7 @@ var __assign = this && this.__assign || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Init = exports.modifyTree = exports.Node = exports.Component = exports.Text = exports.VElem = void 0;
+exports.Init = exports.modifyTree = exports.Node = exports.useState = exports.Component = exports.Text = exports.VElem = void 0;
 
 var VElem =
 /** @class */
@@ -223,6 +223,35 @@ function () {
 exports.Component = Component;
 Component.prototype.__isComponent = true;
 
+var UseStateSystem =
+/** @class */
+function () {
+  function UseStateSystem(v) {
+    this.v = v;
+  }
+
+  UseStateSystem.prototype.set = function (v) {
+    var _a;
+
+    this.v = v;
+    (_a = this.repaint) === null || _a === void 0 ? void 0 : _a.call(this);
+  };
+
+  return UseStateSystem;
+}();
+
+var currentUseStateSystem = undefined;
+
+var useState = function useState(state) {
+  var sys = currentUseStateSystem ? currentUseStateSystem : new UseStateSystem(state);
+  currentUseStateSystem = sys;
+  return [sys.v, function (v) {
+    return sys.set(v);
+  }];
+};
+
+exports.useState = useState;
+
 function createVElement(node, props, children) {
   var asAny = node;
 
@@ -253,10 +282,25 @@ function createVElement(node, props, children) {
 
     return c_1._vnode;
   } else if (typeof node === 'function') {
-    var F = node;
-    return F(__assign(__assign({}, props), {
+    var F_1 = node;
+
+    var p_1 = __assign(__assign({}, props), {
       children: children
-    }));
+    });
+
+    var vnode_1 = F_1(p_1);
+
+    if (currentUseStateSystem) {
+      var sys_1 = currentUseStateSystem;
+
+      currentUseStateSystem.repaint = function () {
+        return repaintFunctionComponent(F_1, sys_1, vnode_1, p_1);
+      };
+
+      currentUseStateSystem = undefined;
+    }
+
+    return vnode_1;
   }
 
   return new VElem(node, props, children);
@@ -272,6 +316,27 @@ function repaint(c) {
   var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
   modifyTree(newTree, parent, oldTree);
   c._vnode = newTree;
+
+  if (oldTree === null || oldTree === void 0 ? void 0 : oldTree.isRoot) {
+    var domParent = oldTree._dom;
+    domParent.replaceChild(newTree._elem, oldTree._elem);
+    newTree.isRoot = true;
+    newTree._dom = domParent;
+  }
+}
+
+function repaintFunctionComponent(c, useStateSystem, oldTree, props) {
+  currentUseStateSystem = useStateSystem;
+  var newTree = c(props);
+  currentUseStateSystem = undefined;
+  newTree.componentDidMount = oldTree.componentDidMount;
+  newTree.componentDidUnmount = oldTree.componentDidUnmount;
+  var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
+  modifyTree(newTree, parent, oldTree);
+
+  useStateSystem.repaint = function () {
+    return repaintFunctionComponent(c, useStateSystem, newTree, props);
+  };
 
   if (oldTree === null || oldTree === void 0 ? void 0 : oldTree.isRoot) {
     var domParent = oldTree._dom;
@@ -946,27 +1011,47 @@ function (_super) {
 }(Agent);
 
 exports.Ghost = Ghost;
+var GHOST_COLORS = ['red', 'blue', 'yellow', 'purple', 'orange', 'firebrick'];
+var difficultyToGhostCount = {
+  easy: 4,
+  medium: 5,
+  hard: 6
+};
 
 var Game =
 /** @class */
 function () {
   function Game(level) {
-    var _this = this;
-
     this.level = level;
     this.candy = [];
+    this.gameState = 'not-started';
     this.pacman = Pacman.create(level);
-    this.ghosts = [Ghost.create(level, 'red'), Ghost.create(level, 'blue'), Ghost.create(level, 'yellow'), Ghost.create(level, 'purple')];
+    this.ghosts = [];
+  }
+
+  Game.prototype.startNewGame = function (difficulty) {
+    var _this = this; // reset pacman
+
+
+    this.pacman = Pacman.create(this.level); // reset ghosts
+
+    var ghostCount = difficultyToGhostCount[difficulty];
+    this.ghosts = GHOST_COLORS.slice(0, ghostCount).map(function (color) {
+      return Ghost.create(_this.level, color);
+    }); // reset candy
+
     this.level.forEach(function (v, x, y) {
       if (v && v !== ' ') {
         _this.candy.push(new pt_1.Pt(x, y));
       }
     });
-  }
+    this.gameState = 'playing';
+  };
 
   Game.prototype.tick = function (dt, playerInput) {
     var _this = this;
 
+    if (this.gameState !== 'playing') return;
     this.pacman.tick(dt, playerInput);
     this.ghosts.forEach(function (g) {
       return g.tick(dt, _this.pacman.pos);
@@ -1155,7 +1240,7 @@ var __importStar = this && this.__importStar || function (mod) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.ButtonControls = exports.setupKeyboardControls = exports.Controller = void 0;
+exports.ButtonControls = exports.KeyboardInstructions = exports.setupKeyboardControls = exports.Controller = void 0;
 
 var LReact = __importStar(require("../l_react"));
 
@@ -1228,6 +1313,20 @@ var setupKeyboardControls = function setupKeyboardControls(controller) {
 };
 
 exports.setupKeyboardControls = setupKeyboardControls;
+
+var KeyboardInstructions = function KeyboardInstructions() {
+  return LReact.Node('div', {
+    style: {
+      fontSize: '24px',
+      display: 'grid',
+      justifyContent: 'center',
+      gridTemplateColumns: 'minmax(auto, 400px)',
+      textAlign: 'center'
+    }
+  }, [LReact.Text("\n            You can use the up, down, left and right arrow keys to move pacman.\n        ")]);
+};
+
+exports.KeyboardInstructions = KeyboardInstructions;
 var BUTTON_SIZE = 70;
 
 var BlankDiv = function BlankDiv() {
@@ -1404,7 +1503,7 @@ function (_super) {
     _this.level = game_1.Level.createLevel1();
     _this.game = new game_1.Game(_this.level);
     _this.state = {
-      state: 'not-started',
+      state: _this.game.gameState,
       windowSize: {
         w: window.innerWidth,
         h: window.innerHeight
@@ -1416,22 +1515,14 @@ function (_super) {
   GameComponent.prototype.render = function () {
     var _this = this;
 
-    var windowSize = this.state.windowSize;
-    var s = Math.min(windowSize.w - 16, 600);
-    var useMobileControls = windowSize.w < 400;
-    var size = {
-      w: s,
-      h: s + 10
-    };
-    var gameRenderScale = size.w / (this.level.w + 2);
+    var useMobileControls = this.useMobileControls;
+    var _a = this.gameRenderScaleAndSize,
+        gameRenderScale = _a.gameRenderScale,
+        size = _a.size;
     return Node('div', {}, [Text(this.state.state), Node(LevelGameContainer, size, [Node(RenderedLevel, {
       level: this.level,
       N: gameRenderScale
-    }), this.state.state === 'not-started' ? Node(AnimatedGame, {
-      game: this.game,
-      gameRenderScale: gameRenderScale,
-      controller: this.controller
-    }, []) : Text('no game')]), Node('button', {
+    }), this.renderGameState()]), Node('button', {
       onClick: function onClick() {
         if (_this.state.state === 'not-started') {
           _this.setState({
@@ -1445,7 +1536,62 @@ function (_super) {
       }
     }, [Text('stop')]), useMobileControls ? Node(game_controls_1.ButtonControls, {
       controller: this.controller
-    }) : null]);
+    }) : Node(game_controls_1.KeyboardInstructions)]);
+  };
+
+  Object.defineProperty(GameComponent.prototype, "useMobileControls", {
+    get: function get() {
+      return this.state.windowSize.w < 400;
+    },
+    enumerable: false,
+    configurable: true
+  });
+  Object.defineProperty(GameComponent.prototype, "gameRenderScaleAndSize", {
+    get: function get() {
+      var windowSize = this.state.windowSize;
+      var s = Math.min(windowSize.w - 16, 600);
+      var size = {
+        w: s,
+        h: s + 10
+      };
+      return {
+        gameRenderScale: size.w / (this.level.w + 2),
+        size: size
+      };
+    },
+    enumerable: false,
+    configurable: true
+  });
+
+  GameComponent.prototype.renderGameState = function () {
+    var gameRenderScale = this.gameRenderScaleAndSize.gameRenderScale;
+
+    switch (this.game.gameState) {
+      case 'playing':
+        return Node(AnimatedGame, {
+          game: this.game,
+          gameRenderScale: gameRenderScale,
+          controller: this.controller
+        }, []);
+
+      case 'not-started':
+        // return Node('button', {
+        //     onClick: () => {
+        //         this.game.startNewGame('easy');
+        //         this.setState({ state: this.game.gameState })
+        //     },
+        // }, [Text('start game')]);
+        return Node(MenuOverlay, {}, [Node(StartGameMenu)]);
+
+      case 'game-over':
+        return Node('div', {}, [Text('you lost')]);
+
+      case 'you-won':
+        return Node('div', {}, [Text('you won')]);
+
+      case 'paused':
+        return Node('button', {}, [Text('unpause game')]);
+    }
   };
 
   return GameComponent;
@@ -1462,7 +1608,9 @@ function (_super) {
     var _this = _super.call(this, props) || this;
 
     _this.componentDidMount = function () {
-      console.log('ANIMATED GAME MOUNT');
+      _this.gameLoop();
+
+      _this.setupEventListeners();
     };
 
     _this.componentDidUnmount = function () {
@@ -1480,10 +1628,6 @@ function (_super) {
     _this.canvasSet = function (canvas) {
       var ctx = canvas.getContext('2d');
       _this.ctx = ctx;
-
-      _this.gameLoop();
-
-      _this.setupEventListeners();
     };
 
     _this.canvasPixels = new pt_1.Pt(props.game.level.w, props.game.level.h);
@@ -1577,6 +1721,43 @@ function (_super) {
 
   return AnimatedGame;
 }(LReact.Component);
+
+var MenuOverlay = function MenuOverlay(_a) {
+  var children = _a.children;
+  return Node('div', {
+    style: {
+      width: '100%',
+      height: '100%',
+      backdropFilter: 'blur(5px)'
+    }
+  }, children);
+};
+
+var StartGameMenu = function StartGameMenu(_a) {
+  var _b = LReact.useState('easy'),
+      difficulty = _b[0],
+      setDifficulty = _b[1];
+
+  return Node('div', {
+    style: {
+      color: 'orange',
+      fontSize: '40px',
+      width: '100%',
+      height: '100%',
+      display: 'grid',
+      gridAutoFlow: 'row',
+      justifyItems: 'center',
+      alignItems: 'center',
+      background: 'rgba(0,0,0,0.5)'
+    }
+  }, [Text('start game'), Node('button', {
+    onClick: function onClick() {
+      if (difficulty === 'medium') {
+        setDifficulty('easy');
+      } else setDifficulty('medium');
+    }
+  }, [Text('button!')])]);
+};
 
 var LevelGameContainer = function LevelGameContainer(_a) {
   var w = _a.w,

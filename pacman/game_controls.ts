@@ -49,6 +49,22 @@ export const setupKeyboardControls = (controller: Controller) => {
     };
 };
 
+export const KeyboardInstructions = () => {
+    return LReact.Node('div', {
+        style: {
+            fontSize: '24px',
+            display: 'grid',
+            justifyContent: 'center',
+            gridTemplateColumns: 'minmax(auto, 400px)',
+            textAlign: 'center',
+        },
+    }, [
+        LReact.Text(`
+            You can use the up, down, left and right arrow keys to move pacman.
+        `),
+    ]);
+};
+
 type ButtonControlsProps = {
     controller: Controller,
 };

@@ -8,6 +8,7 @@ export class VElem {
     _parent?: VElem;
     _elem?: HTMLElement | Text;
     _dom?: HTMLElement;
+    _useStateSystem?: UseStateSystem<any>;
     isRoot: boolean = false;
     componentDidMount?: () => void;
     componentDidUnmount?: () => void;
@@ -71,6 +72,38 @@ export abstract class Component<Props extends object, State extends object> {
 
 (Component.prototype as unknown as any).__isComponent = true;
 
+type UseStateConfig<T> = [
+    s: T,
+    set: (v: T) => void,
+];
+
+class UseStateSystem<T> {
+    repaint?: () => void;
+    constructor(public v: T) {
+    }
+
+    set(v: T) {
+        this.v = v;
+        this.repaint?.();
+    }
+}
+
+let currentUseStateSystem: UseStateSystem<any> | undefined = undefined;
+
+export const useState = <T>(state: T): UseStateConfig<T> => {
+
+    const sys = currentUseStateSystem
+        ? currentUseStateSystem
+        : new UseStateSystem(state);
+
+    currentUseStateSystem = sys;
+
+    return [
+        sys.v,
+        (v: T) => sys.set(v),
+    ];
+};
+
 type ComponentConstructor<P extends object, S extends object> = new(p: P) => Component<P, S>;
 
 type ComponentType<P extends object, S extends object> =
@@ -98,10 +131,17 @@ function createVElement<P extends object, S extends object>(node: ComponentType<
         return c._vnode;
     } else if (typeof node === 'function') {
         const F = node as (p: P) => VElem;
-       return F({
-           ...props,
-           children,
-       });
+        const p = {
+            ...props,
+            children,
+        };
+       const vnode = F(p);
+        if (currentUseStateSystem) {
+            const sys = currentUseStateSystem;
+            currentUseStateSystem.repaint = () => repaintFunctionComponent(F, sys, vnode, p);
+            currentUseStateSystem = undefined;
+        }
+       return vnode;
     }
     return new VElem(node, props, children);
 }
@@ -117,6 +157,24 @@ function repaint<P extends object, S extends object>(c: Component<P, S>) {
     
     modifyTree(newTree, parent, oldTree);
     c._vnode = newTree;
+    if (oldTree?.isRoot) {
+        const domParent = oldTree._dom;
+        domParent.replaceChild(newTree._elem, oldTree._elem);
+        newTree.isRoot = true;
+        newTree._dom = domParent;
+    }
+}
+
+function repaintFunctionComponent<P extends object, S extends object>(c: (props: P) => VElem, useStateSystem: UseStateSystem<any>, oldTree: VElem, props: P) {
+    currentUseStateSystem = useStateSystem;
+    const newTree = c(props);
+    currentUseStateSystem = undefined;
+    newTree.componentDidMount = oldTree.componentDidMount;
+    newTree.componentDidUnmount = oldTree.componentDidUnmount;
+    const parent = oldTree?._parent;
+    
+    modifyTree(newTree, parent, oldTree);
+    useStateSystem.repaint = () => repaintFunctionComponent(c, useStateSystem, newTree, props);
     if (oldTree?.isRoot) {
         const domParent = oldTree._dom;
         domParent.replaceChild(newTree._elem, oldTree._elem);

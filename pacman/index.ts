@@ -1,5 +1,5 @@
 import * as LReact from '../l_react';
-import { Level, Game, Dir, DIRECTIONS } from './game';
+import { Level, Game, Dir, DIRECTIONS, GameState, Difficulty } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
 const { Node, Text } = LReact;
@@ -7,13 +7,8 @@ import {
     Controller,
     setupKeyboardControls,
     ButtonControls,
+    KeyboardInstructions,
 } from './game_controls';
-
-type GameState =
-    | 'not-started'
-    | 'game-over'
-    | 'you-won'
-    | 'paused';
 
 type GameComponentState = {
     state: GameState,
@@ -29,7 +24,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         this.level = Level.createLevel1();
         this.game = new Game(this.level);
         this.state = {
-            state: 'not-started',
+            state: this.game.gameState,
             windowSize: {
                 w: window.innerWidth,
                 h: window.innerHeight,
@@ -37,27 +32,14 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         };
     }
     render() {
-        const { windowSize } = this.state;
-
-        const s = Math.min(windowSize.w - 16, 600);
-
-        const useMobileControls = windowSize.w < 400;
-        
-        const size = {
-            w: s,
-            h: s + 10,
-        };
-
-        const gameRenderScale = size.w / (this.level.w+2);
-
+        const useMobileControls = this.useMobileControls;
+        const { gameRenderScale, size } = this.gameRenderScaleAndSize;
 
         return Node('div', {}, [
             Text(this.state.state),
             Node(LevelGameContainer, size, [
                 Node(RenderedLevel, { level: this.level, N: gameRenderScale }),
-                this.state.state === 'not-started'
-                    ? Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller }, [])
-                    : Text('no game'),
+                this.renderGameState(),
             ]),
             Node('button', {
                 onClick: () => {
@@ -68,8 +50,52 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     }
                 },
             }, [Text('stop')]),
-            useMobileControls ? Node(ButtonControls, { controller: this.controller }) : null,
+            useMobileControls ? Node(ButtonControls, { controller: this.controller }) : Node(KeyboardInstructions),
         ]);
+    }
+
+    get useMobileControls() {
+        return this.state.windowSize.w < 400;
+    }
+
+    get gameRenderScaleAndSize() {
+        const { windowSize } = this.state;
+
+        const s = Math.min(windowSize.w - 16, 600);
+
+        const size = {
+            w: s,
+            h: s + 10,
+        };
+
+        return {
+            gameRenderScale: size.w / (this.level.w+2),
+            size,
+        }; 
+    }
+
+    renderGameState() {
+        const { gameRenderScale } = this.gameRenderScaleAndSize;
+        switch (this.game.gameState) {
+            case 'playing':
+                return Node(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller }, []);
+            case 'not-started':
+                // return Node('button', {
+                //     onClick: () => {
+                //         this.game.startNewGame('easy');
+                //         this.setState({ state: this.game.gameState })
+                //     },
+                // }, [Text('start game')]);
+                return Node(MenuOverlay, {}, [
+                    Node(StartGameMenu),
+                ]);
+            case 'game-over':
+                return Node('div', {}, [Text('you lost')]);
+            case 'you-won':
+                return Node('div', {}, [Text('you won')]);
+            case 'paused':
+                return Node('button', {}, [Text('unpause game')]);
+        }
     }
 }
 
@@ -89,7 +115,8 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     }
 
     componentDidMount = () => {
-        console.log('ANIMATED GAME MOUNT');
+        this.gameLoop();
+        this.setupEventListeners();
     };
 
     componentDidUnmount = () => {
@@ -129,8 +156,6 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     canvasSet = (canvas: HTMLCanvasElement) => {
         const ctx = canvas.getContext('2d');
         this.ctx = ctx;
-        this.gameLoop();
-        this.setupEventListeners();
     }
 
     setupEventListeners() {
@@ -176,6 +201,50 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
         this.animId = { id: requestAnimationFrame(loop) };
     }
 }
+
+const MenuOverlay = ({
+    children,
+}: {
+    children?: LReact.VElem[],
+}) => {
+    return Node('div', {
+        style: {
+            width: '100%',
+            height: '100%',
+            backdropFilter: 'blur(5px)',
+        },
+    }, children);
+};
+
+const StartGameMenu = ({}: {
+    
+}) => {
+
+    const [difficulty, setDifficulty] = LReact.useState<Difficulty>('easy');
+
+    return Node('div', {
+        style: {
+            color: 'orange',
+            fontSize: '40px',
+            width: '100%',
+            height: '100%',
+            display: 'grid',
+            gridAutoFlow: 'row',
+            justifyItems: 'center',
+            alignItems: 'center',
+            background: 'rgba(0,0,0,0.5)',
+        },
+    }, [
+        Text('start game'),
+        Node('button', {
+            onClick: () => {
+                if (difficulty === 'medium') {
+                    setDifficulty('easy');
+                } else setDifficulty('medium');
+            },
+        }, [Text('button!')]),
+    ]);
+};
 
 const LevelGameContainer = ({ w, h, children }: {
     w: number,
