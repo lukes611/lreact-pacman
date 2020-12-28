@@ -11,6 +11,7 @@ class _Element {
     _velem?: _Element;
     _dom?: HTMLElement;
     _c?: Component<any, any>;
+    _useStateSys?: UseStateSystem<any>;
 
     constructor(public maker: ComponentMakerKind, public props: object, public children: _Element[]) {
         if (this.maker.kind === 'c') this._name = this.maker.c.constructor.name;
@@ -20,10 +21,21 @@ class _Element {
         switch (this.maker.kind) {
             case 'c': {
                 this._c = new this.maker.c(this.props);
+                this._c.paint = () => repaint2(this);
                 this._velem = this._c?.render();
             }; break;
             case 'f': {
+                currentUseStateSystem.takeout();
                 this._velem = this.maker.f(this.props);
+                console.log({currentUseStateSystem})
+                const useStateSys = currentUseStateSystem.get();
+                console.log({ gotIt: useStateSys});
+                if (useStateSys) {
+                    const sys = useStateSys;
+                    this._useStateSys = sys;
+                    sys.repaint = () => repaint2(this);
+                }
+                currentUseStateSystem.pop();
             }; break;
             case 'html': {
                 this._elem = document.createElement(this.maker.type);
@@ -33,6 +45,22 @@ class _Element {
             }; break;
         }
     }
+
+    getMakerValue() {
+        switch (this.maker.kind) {
+            case 'c': return this.maker.c;
+            case 'f': return this.maker.f;
+            case 'html': return this.maker.type;
+            case 'string': return this.maker.value;
+        }
+    }
+
+    similar(e: _Element): boolean {
+        if (e.maker.kind !== this.maker.kind) return false;
+        if (this.getMakerValue() !== e.getMakerValue()) return false;
+        if (this.children.length !== e.children.length) return false;
+        return true;
+    }
 }
 
 type MakerType<P extends object, S extends object> =
@@ -40,11 +68,11 @@ type MakerType<P extends object, S extends object> =
     | ComponentConstructor<P, S>
     | ((props: P | undefined) => _Element);
 
-export function Element<P extends object, S extends object>(type: MakerType<P, S>, props: object = {}, children: (_Element | string)[] = []): _Element {
+export function Element<P extends object, S extends object>(type: MakerType<P, S>, props: object = {}, children: (_Element | string | null)[] = []): _Element {
     const properChildren = children.map(ch => {
         if (typeof ch === 'string') return new _Element({ kind: 'string', value: ch }, {}, []);
         return ch;
-    });
+    }).filter(x => x != null);
     if (typeof type === 'function') {
         if (isAComponentClass(type)) {
             return new _Element({ kind: 'c', c: type as any }, props, properChildren);
@@ -106,8 +134,8 @@ export abstract class Component<Props extends object = {}, State extends object 
 
     _vnode?: _Element;
     paint?: (x: Component<Props, State>) => void;
-    componentDidMount?: () => void;
-    componentDidUnmount?: () => void;
+    componentDidMount() {}
+    componentDidUnmount() {}
 
     constructor(props: Props) {
         this.props = props;
@@ -144,6 +172,7 @@ class UseStateSystem<T> {
     }
 
     set(v: T) {
+        console.log('wowee')
         this.v = v;
         this.repaint?.();
     }
@@ -187,9 +216,9 @@ class CurrentUseStateSystem {
 const currentUseStateSystem = new CurrentUseStateSystem();
 
 export const useState = <T>(state: T): UseStateConfig<T> => {
-
+    
     const sys = currentUseStateSystem.useSlot(state);
-
+    
     return [
         sys.v,
         (v: T) => sys.set(v),
@@ -404,13 +433,68 @@ export function RenderDom(e: _Element, domParent: HTMLElement) {
     modifyTree2(e, undefined, domParent, undefined);
 }
 
+function repaint2<P extends object, S extends object>(e: _Element) {
+    // maker must be component or function component, do function later
+    const oldTree = e._velem!;
+    let newTree: _Element;
+    if (e.maker.kind === 'c') {
+        newTree = e._c.render();
+    } else if (e.maker.kind === 'f') {
+        console.log('re-rrender F', e)
+        const hasUSS = !!e._useStateSys;
+        if (hasUSS) {
+            currentUseStateSystem.useUseStateSys(e._useStateSys);
+
+        }
+        newTree = e.maker.f(e.props);
+        if (hasUSS) {
+            currentUseStateSystem.pop();
+        }
+    }
+    
+    // newTree.componentDidMount = oldTree.componentDidMount;
+    // newTree.componentDidUnmount = oldTree.componentDidUnmount;
+    // console.log(oldTree.toString());
+    // console.log(newTree.toString());
+    const parent = oldTree?._parent;
+    
+    modifyTree2(newTree, parent, oldTree._dom, oldTree);
+    e._velem = newTree;
+    // if (oldTree?.isRoot) {
+    //     const domParent = oldTree._dom;
+    //     domParent.replaceChild(newTree._elem, oldTree._elem);
+    //     newTree.isRoot = true;
+    //     newTree._dom = domParent;
+    // }
+}
+
 export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLElement, prevTree?: _Element) {
     const { props, children, maker } = tree;
-    console.log(tree)
+    tree._dom = parentDOM;
 
+    if (prevTree && prevTree.similar(tree)) {
+        console.log('just replace attrbutes?', tree.maker);
+        if (prevTree._elem && tree.maker.kind === 'html') {
+            tree._elem = prevTree._elem;
+            assignProps(tree._elem as HTMLElement, props);
+            tree.children.forEach((ch, i) => {
+                modifyTree2(ch, tree, tree._elem as HTMLElement, prevTree.children[i]);
+            });
+        } else if (prevTree._velem) {
+            tree._velem = prevTree._velem;
+        }
+        return;
+    }
+
+    // must re-write
     tree.createElement();
     if (parentDOM && tree._elem) {
-        parentDOM.appendChild(tree._elem);
+        if (prevTree && prevTree._elem) {
+            parentDOM.replaceChild(tree._elem, prevTree._elem);
+            unmountAll(prevTree);
+        } else {
+            parentDOM.appendChild(tree._elem);
+        }
         if (maker.kind === 'html') {
             assignProps(tree._elem as HTMLElement, props);
             children.forEach(ch => {
@@ -418,6 +502,10 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             });
         }
     } else if (tree._velem) {
+        if (prevTree) {
+            unmountAll(prevTree);
+        }
+        tree._c?.componentDidMount();
         modifyTree2(tree._velem, tree, parentDOM, undefined);
     }
 
@@ -477,4 +565,9 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
     //     });
 
     // }
+}
+
+function unmountAll(t: _Element) {
+    t._c?.componentDidUnmount();
+    t.children.forEach(unmountAll);
 }

@@ -197,6 +197,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     killEventListeners?: () => void;
     constructor(props: AnimatedGameProps) {
         super(props);
+        console.log('new AnimatedGame');
     }
 
     componentDidMount = () => {
@@ -228,7 +229,6 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     render() {
         const { gameRenderScale } = this.props;
         const canvasSize = this.canvasSize;
-        console.log(this.props.gameRenderScale, this);
         return Node('canvas', {
             ref: this.canvasSet,
             width: canvasSize.w,
@@ -266,7 +266,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
         let prevDelta = 0;
         const loop = (delta: number) => {
             const N = this.props.gameRenderScale;
-            console.log(N, this);
+            //console.log(N, this);
             const { ctx } = this;
             const { game } = this.props;
             if (!ctx) return;

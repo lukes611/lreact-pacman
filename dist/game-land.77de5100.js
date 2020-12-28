@@ -117,7 +117,7 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"l_react.ts":[function(require,module,exports) {
+})({"l_react2.ts":[function(require,module,exports) {
 "use strict";
 
 var __assign = this && this.__assign || function () {
@@ -139,7 +139,145 @@ var __assign = this && this.__assign || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Init = exports.modifyTree = exports.Node = exports.useState = exports.Component = exports.Text = exports.VElem = void 0;
+exports.modifyTree2 = exports.RenderDom = exports.Init = exports.modifyTree = exports.Node = exports.useState = exports.Component = exports.Text = exports.VElem = exports.Element = void 0;
+
+var _Element =
+/** @class */
+function () {
+  function _Element(maker, props, children) {
+    this.maker = maker;
+    this.props = props;
+    this.children = children;
+    if (this.maker.kind === 'c') this._name = this.maker.c.constructor.name;
+  }
+
+  _Element.prototype.createElement = function () {
+    var _this = this;
+
+    var _a;
+
+    switch (this.maker.kind) {
+      case 'c':
+        {
+          this._c = new this.maker.c(this.props);
+
+          this._c.paint = function () {
+            return repaint2(_this);
+          };
+
+          this._velem = (_a = this._c) === null || _a === void 0 ? void 0 : _a.render();
+        }
+        ;
+        break;
+
+      case 'f':
+        {
+          currentUseStateSystem.takeout();
+          this._velem = this.maker.f(this.props);
+          console.log({
+            currentUseStateSystem: currentUseStateSystem
+          });
+          var useStateSys = currentUseStateSystem.get();
+          console.log({
+            gotIt: useStateSys
+          });
+
+          if (useStateSys) {
+            var sys = useStateSys;
+            this._useStateSys = sys;
+
+            sys.repaint = function () {
+              return repaint2(_this);
+            };
+          }
+
+          currentUseStateSystem.pop();
+        }
+        ;
+        break;
+
+      case 'html':
+        {
+          this._elem = document.createElement(this.maker.type);
+        }
+        ;
+        break;
+
+      case 'string':
+        {
+          this._elem = document.createTextNode(this.maker.value);
+        }
+        ;
+        break;
+    }
+  };
+
+  _Element.prototype.getMakerValue = function () {
+    switch (this.maker.kind) {
+      case 'c':
+        return this.maker.c;
+
+      case 'f':
+        return this.maker.f;
+
+      case 'html':
+        return this.maker.type;
+
+      case 'string':
+        return this.maker.value;
+    }
+  };
+
+  _Element.prototype.similar = function (e) {
+    if (e.maker.kind !== this.maker.kind) return false;
+    if (this.getMakerValue() !== e.getMakerValue()) return false;
+    if (this.children.length !== e.children.length) return false;
+    return true;
+  };
+
+  return _Element;
+}();
+
+function Element(type, props, children) {
+  if (props === void 0) {
+    props = {};
+  }
+
+  if (children === void 0) {
+    children = [];
+  }
+
+  var properChildren = children.map(function (ch) {
+    if (typeof ch === 'string') return new _Element({
+      kind: 'string',
+      value: ch
+    }, {}, []);
+    return ch;
+  }).filter(function (x) {
+    return x != null;
+  });
+
+  if (typeof type === 'function') {
+    if (isAComponentClass(type)) {
+      return new _Element({
+        kind: 'c',
+        c: type
+      }, props, properChildren);
+    }
+
+    return new _Element({
+      kind: 'f',
+      f: type
+    }, props, properChildren);
+  } else if (typeof type === 'string') {
+    return new _Element({
+      kind: 'html',
+      type: type
+    }, props, properChildren);
+  }
+}
+
+exports.Element = Element;
 
 var VElem =
 /** @class */
@@ -208,6 +346,10 @@ function () {
     this.props = props;
   }
 
+  Component.prototype.componentDidMount = function () {};
+
+  Component.prototype.componentDidUnmount = function () {};
+
   Component.prototype.setState = function (s) {
     var _a;
 
@@ -221,6 +363,12 @@ function () {
 }();
 
 exports.Component = Component;
+
+function isAComponentClass(x) {
+  if (typeof x !== 'function') return false;
+  return x.prototype && x.prototype.__isComponent;
+}
+
 Component.prototype.__isComponent = true;
 
 var UseStateSystem =
@@ -233,6 +381,7 @@ function () {
   UseStateSystem.prototype.set = function (v) {
     var _a;
 
+    console.log('wowee');
     this.v = v;
     (_a = this.repaint) === null || _a === void 0 ? void 0 : _a.call(this);
   };
@@ -542,932 +691,159 @@ function Init(node, domParent) {
 }
 
 exports.Init = Init;
-},{}],"pacman/pt.ts":[function(require,module,exports) {
-"use strict";
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.Pt = exports.Radians2Degrees = void 0;
-exports.Radians2Degrees = 180 / Math.PI;
-
-var Pt =
-/** @class */
-function () {
-  function Pt(x, y) {
-    if (x === void 0) {
-      x = 0;
-    }
-
-    if (y === void 0) {
-      y = 0;
-    }
-
-    this.x = x;
-    this.y = y;
-  }
-
-  Pt.prototype.copy = function () {
-    return new Pt(this.x, this.y);
-  };
-
-  Pt.prototype.toString = function () {
-    return "<" + this.x + ", " + this.y + ">";
-  };
-
-  Pt.prototype.floor = function () {
-    return new Pt(Math.floor(this.x), Math.floor(this.y));
-  };
-
-  Pt.prototype.ceil = function () {
-    return new Pt(Math.ceil(this.x), Math.ceil(this.y));
-  };
-
-  Pt.prototype.round = function () {
-    return new Pt(Math.round(this.x), Math.round(this.y));
-  };
-
-  Pt.prototype.scale = function (v) {
-    return new Pt(this.x * v, this.y * v);
-  };
-
-  Pt.prototype.addY = function (yv) {
-    return new Pt(this.x, this.y + yv);
-  };
-
-  Pt.prototype.add = function (x, y) {
-    return new Pt(this.x + x, this.y + y);
-  };
-
-  Pt.prototype.addP = function (_a) {
-    var x = _a.x,
-        y = _a.y;
-    return new Pt(this.x + x, this.y + y);
-  };
-
-  Pt.prototype.eq = function (p) {
-    return this.x === p.x && this.y === p.y;
-  };
-
-  Pt.prototype.dist = function (p) {
-    var diff = this.addP(p.scale(-1));
-    return diff.mag();
-  };
-
-  Pt.fromAngle = function (angle) {
-    var rv = new Pt(0, 0);
-    angle /= exports.Radians2Degrees;
-    rv.x = Math.cos(angle);
-    rv.y = Math.sin(angle);
-    return rv;
-  };
-
-  Pt.prototype.getAngle = function () {
-    var angle = exports.Radians2Degrees * Math.atan(this.y / this.x);
-    if (this.x < 0.0) angle += 180.0;else if (this.y < 0.0) angle += 360.0;
-    return angle;
-  };
-
-  Pt.prototype.mag = function () {
-    return Math.sqrt(this.x * this.x + this.y * this.y);
-  };
-
-  Pt.prototype.unit = function () {
-    return this.scale(1 / this.mag());
-  };
-
-  return Pt;
-}();
-
-exports.Pt = Pt;
-},{}],"pacman/game.ts":[function(require,module,exports) {
-"use strict";
-
-var __extends = this && this.__extends || function () {
-  var _extendStatics = function extendStatics(d, b) {
-    _extendStatics = Object.setPrototypeOf || {
-      __proto__: []
-    } instanceof Array && function (d, b) {
-      d.__proto__ = b;
-    } || function (d, b) {
-      for (var p in b) {
-        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
-      }
-    };
-
-    return _extendStatics(d, b);
-  };
-
-  return function (d, b) {
-    _extendStatics(d, b);
-
-    function __() {
-      this.constructor = d;
-    }
-
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-  };
-}();
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.Game = exports.Ghost = exports.Pacman = exports.Agent = exports.Level = exports.DIRECTIONS = exports.level1 = void 0;
-
-var pt_1 = require("./pt");
-
-var halfLevel1 = "# level 1\n+-------+---------   \n|       |        |   \n|       |        |   \n|       |        |   \n|       |        |   \n+-----------+----+---\n|       |   |        \n|       |   |        \n|       |   |        \n|       |   +---+    \n|       |       |    \n|       |       |    \n|       |       |    \n+-------+   +---+---+\n        |   |       g\n        |   |       g\n        |   |       g\n        |   |       g\n        |   |       g\nt---p-------+   ggggg\n        |   |        \n        |   |        \n        |   |        \n        |   +--------\n        |   |        \n        |   |        \n+-----------+-------+\n|       |           |\n|       |           |\n|       |           |\n|       |           |\n+---+   +----+------+\n    |   |    |       \n    |   |    |       \n    |   |    |       \n+---+---+    +--+    \n|               |    \n|               |    \n|               |    \n+---------------+----\n";
-exports.level1 = halfLevel1.split('\n').map(function (line) {
-  if (line.startsWith('#')) return line;
-  var secondHalf = line.substring(0, line.length - 1).split('').reverse().map(function (v) {
-    if (v === 'p' || v === 't') return '+';
-    return v;
-  }).join('');
-  return line + secondHalf;
-}).join('\n');
-exports.DIRECTIONS = ['up', 'down', 'left', 'right'];
-
-function ptToDir(p) {
-  if (p.x) {
-    if (p.x < 0) return 'left';
-    return 'right';
-  } else {
-    if (p.y < 0) return 'up';
-    return 'down';
-  }
+function RenderDom(e, domParent) {
+  console.log('ok...');
+  modifyTree2(e, undefined, domParent, undefined);
 }
 
-function dirToPt(v) {
-  switch (v) {
-    case 'up':
-      return new pt_1.Pt(0, -1);
+exports.RenderDom = RenderDom;
 
-    case 'down':
-      return new pt_1.Pt(0, 1);
+function repaint2(e) {
+  // maker must be component or function component, do function later
+  var oldTree = e._velem;
+  var newTree;
 
-    case 'left':
-      return new pt_1.Pt(-1, 0);
+  if (e.maker.kind === 'c') {
+    newTree = e._c.render();
+  } else if (e.maker.kind === 'f') {
+    console.log('re-rrender F', e);
+    var hasUSS = !!e._useStateSys;
 
-    case 'right':
-      return new pt_1.Pt(1, 0);
-  }
+    if (hasUSS) {
+      currentUseStateSystem.useUseStateSys(e._useStateSys);
+    }
+
+    newTree = e.maker.f(e.props);
+
+    if (hasUSS) {
+      currentUseStateSystem.pop();
+    }
+  } // newTree.componentDidMount = oldTree.componentDidMount;
+  // newTree.componentDidUnmount = oldTree.componentDidUnmount;
+  // console.log(oldTree.toString());
+  // console.log(newTree.toString());
+
+
+  var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
+  modifyTree2(newTree, parent, oldTree._dom, oldTree);
+  e._velem = newTree; // if (oldTree?.isRoot) {
+  //     const domParent = oldTree._dom;
+  //     domParent.replaceChild(newTree._elem, oldTree._elem);
+  //     newTree.isRoot = true;
+  //     newTree._dom = domParent;
+  // }
 }
 
-var Level =
-/** @class */
-function () {
-  function Level(levelString) {
-    this.level = levelString.split('\n').slice(1).map(function (s) {
-      return s.split('');
-    });
-    this.w = this.level[0].length;
-    this.h = this.level.length;
-  }
+function modifyTree2(tree, parent, parentDOM, prevTree) {
+  var _a;
 
-  Level.createLevel1 = function () {
-    return new Level(exports.level1);
-  };
+  var props = tree.props,
+      children = tree.children,
+      maker = tree.maker;
+  tree._dom = parentDOM;
 
-  Level.prototype.isPath = function (x, y) {
-    var v = this.getV(x, y);
-    return v && v !== ' ';
-  };
+  if (prevTree && prevTree.similar(tree)) {
+    console.log('just replace attrbutes?', tree.maker);
 
-  Level.prototype.isPathP = function (p) {
-    return this.isPath(p.x, p.y);
-  };
-
-  Level.prototype.getV = function (x, y) {
-    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return undefined;
-    var v = this.level[y][x];
-    return v;
-  };
-
-  Level.prototype.getLocationsOfChar = function (ch) {
-    var out = [];
-    this.forEach(function (v, x, y) {
-      if (v === ch) {
-        out.push(new pt_1.Pt(x, y));
-      }
-    });
-    return out;
-  };
-
-  Level.prototype.forEach = function (f) {
-    for (var y = 0; y < this.h; y++) {
-      for (var x = 0; x < this.w; x++) {
-        f(this.getV(x, y), x, y);
-      }
-    }
-  };
-
-  Level.prototype.getClosestRailPoint = function (p) {
-    return p.round();
-  };
-
-  Level.prototype.nearARailPoint = function (p, maxD) {
-    if (maxD === void 0) {
-      maxD = 0.08;
-    }
-
-    var xD = Math.abs(p.x - Math.round(p.x));
-    var yD = Math.abs(p.y - Math.round(p.y));
-    if (xD > maxD || yD > maxD) return false;
-    return true;
-  };
-
-  Level.prototype.isRailPoint = function (p) {
-    return p.x % 1 === 0 && p.y % 1 === 0;
-  };
-
-  Level.prototype.isSafePosition = function (p) {
-    return this.onRail(p);
-  };
-
-  Level.prototype.onRail = function (p) {
-    if (this.isRailPoint(p) && this.isPathP(p)) return true;
-
-    if (p.y % 1 === 0) {
-      // left/right
-      var fx = Math.floor(p.x);
-      var cx = Math.ceil(p.x);
-      if (this.isPath(fx, p.y) && this.isPath(cx, p.y)) return true;
-      return false;
-    }
-
-    var fy = Math.floor(p.y);
-    var cy = Math.ceil(p.y);
-    if (this.isPath(p.x, fy) && this.isPath(p.x, cy)) return true;
-    return false;
-  };
-
-  Level.prototype.onALinearPath = function (pIn) {
-    var p = this.getClosestRailPoint(pIn);
-    var st = new Map();
-    this.forSurroundingPoints(p, function (d, x, v) {
-      if (v && v !== ' ') st.set(d, true);
-    });
-    return st.get('up') && st.get('down') && !st.get('left') && !st.get('right') || !st.get('up') && !st.get('down') && st.get('left') && st.get('right');
-  };
-
-  Level.prototype.forSurroundingPoints = function (p, f) {
-    var _this = this;
-
-    exports.DIRECTIONS.forEach(function (dir) {
-      var x = p.addP(dirToPt(dir));
-      f(dir, x, _this.getV(x.x, x.y));
-    });
-  };
-
-  Level.prototype.getDirectionOptions = function (p) {
-    var _this = this;
-
-    var rp = this.getClosestRailPoint(p);
-    return exports.DIRECTIONS.filter(function (d) {
-      var v = dirToPt(d);
-      var x = rp.addP(v);
-      if (_this.isPathP(x)) return true;
-      return false;
-    });
-  };
-
-  Level.prototype.getSafeMove = function (p, moveVec) {
-    var to = p.addP(moveVec);
-    if (this.onRail(to)) return {
-      safe: true,
-      newPos: to
-    };
-    var cp = p.copy();
-
-    switch (ptToDir(moveVec)) {
-      case 'left':
-        cp.y = Math.round(cp.y);
-        cp.x += moveVec.x;
-        break;
-
-      case 'right':
-        cp.y = Math.round(cp.y);
-        cp.x += moveVec.x;
-        break;
-
-      case 'up':
-        cp.x = Math.round(cp.x);
-        cp.y += moveVec.y;
-        break;
-
-      case 'down':
-        cp.x = Math.round(cp.x);
-        cp.y += moveVec.y;
-        break;
-    }
-
-    if (this.onRail(cp)) return {
-      safe: true,
-      newPos: cp
-    };
-    return {
-      safe: false
-    };
-  };
-
-  return Level;
-}();
-
-exports.Level = Level;
-
-var Agent =
-/** @class */
-function () {
-  function Agent(pos, dir, level) {
-    this.pos = pos;
-    this.dir = dir;
-    this.level = level;
-    this.minMoveDist = 0.1;
-    this.maxMoveDist = 0.1;
-  }
-
-  Agent.prototype.getClosestRailPoint = function () {
-    return this.level.getClosestRailPoint(this.pos);
-  };
-
-  Agent.prototype.nearARailPoint = function () {
-    return this.level.nearARailPoint(this.pos);
-  };
-
-  Object.defineProperty(Agent.prototype, "dirV", {
-    get: function get() {
-      return dirToPt(this.dir);
-    },
-    enumerable: false,
-    configurable: true
-  });
-
-  Agent.prototype.getMoveVec = function (dt) {
-    var dirV = this.dirV.scale(dt * 0.005);
-
-    if (this.dir === 'right' || this.dir === 'left') {
-      return new pt_1.Pt(signedClamp(dirV.x, this.minMoveDist, this.maxMoveDist), dirV.y);
-    }
-
-    return new pt_1.Pt(dirV.x, signedClamp(dirV.y, this.minMoveDist, this.maxMoveDist));
-  };
-
-  Agent.prototype.railGuide = function () {
-    switch (this.dir) {
-      case 'left':
-      case 'right':
-        this.pos.y = Math.round(this.pos.y);
-        break;
-
-      case 'down':
-      case 'up':
-        this.pos.x = Math.round(this.pos.x);
-    }
-  };
-
-  return Agent;
-}();
-
-exports.Agent = Agent;
-
-var Pacman =
-/** @class */
-function (_super) {
-  __extends(Pacman, _super);
-
-  function Pacman(pos, dir, level) {
-    var _this = _super.call(this, pos, dir, level) || this;
-
-    _this.mouthOpenPerc = 0;
-    _this.internalTick = 0;
-    return _this;
-  }
-
-  Pacman.create = function (lvl) {
-    return new Pacman(lvl.getLocationsOfChar('p').pop(), 'right', lvl);
-  };
-
-  Pacman.prototype.tick = function (dt, playerInput) {
-    this.internalTick += dt;
-    this.mouthOpenPerc = Math.abs(Math.sin(this.internalTick * 0.01)) * 0.1;
-    this.railGuide();
-
-    if (playerInput) {
-      this.dir = playerInput;
-      var vel = this.getMoveVec(dt);
-      var outcome = this.level.getSafeMove(this.pos, vel);
-
-      if (outcome.safe) {
-        this.pos = outcome.newPos;
-      }
-    }
-  };
-
-  return Pacman;
-}(Agent);
-
-exports.Pacman = Pacman;
-
-var Ghost =
-/** @class */
-function (_super) {
-  __extends(Ghost, _super);
-
-  function Ghost(pos, dir, level, color, scared) {
-    var _this = _super.call(this, pos, dir, level) || this;
-
-    _this.color = color;
-    _this.scared = scared;
-    return _this;
-  }
-
-  Ghost.create = function (lvl, color) {
-    return new Ghost(new pt_1.Pt(22, 19), 'right', lvl, color, false);
-  };
-
-  Ghost.prototype.lastMovedFromHere = function () {
-    if (!this.lastGate) return false;
-    var closestRailPoint = this.getClosestRailPoint();
-    return closestRailPoint.eq(this.lastGate);
-  };
-
-  Ghost.prototype.canSeePacman = function (pmp) {
-    var pos = this.pos;
-    var canCheckY = !inRange(pos.y % 1, 0.1, 0.9);
-    var canCheckX = !inRange(pos.x % 1, 0.1, 0.9);
-    var py = Math.round(pos.y);
-    var px = Math.round(pos.x);
-
-    if (canCheckY && py === Math.round(py) && py === pmp.y) {
-      var _a = minMax(pmp.x, pos.x),
-          mn = _a[0],
-          mx = _a[1];
-
-      for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-        if (!this.level.isPath(i, py)) return;
-      }
-
-      return pmp.x === mn ? 'left' : 'right';
-    } else if (canCheckX && px === Math.round(px) && px === pmp.x) {
-      var _b = minMax(pmp.y, pos.y),
-          mn = _b[0],
-          mx = _b[1];
-
-      for (var i = Math.ceil(mn); i <= Math.floor(mx); i++) {
-        if (!this.level.isPath(px, i)) return;
-      }
-
-      return pmp.y === mn ? 'up' : 'down';
+    if (prevTree._elem && tree.maker.kind === 'html') {
+      tree._elem = prevTree._elem;
+      assignProps(tree._elem, props);
+      tree.children.forEach(function (ch, i) {
+        modifyTree2(ch, tree, tree._elem, prevTree.children[i]);
+      });
+    } else if (prevTree._velem) {
+      tree._velem = prevTree._velem;
     }
 
     return;
-  };
+  } // must re-write
 
-  Ghost.prototype.tick = function (dt, pacmanPos) {
-    this.railGuide();
-    var seePacman = this.canSeePacman(pacmanPos);
-    var speed = 1;
 
-    if (seePacman) {
-      this.dir = seePacman;
-      this.railGuide();
-      speed = 1.2;
+  tree.createElement();
+
+  if (parentDOM && tree._elem) {
+    if (prevTree && prevTree._elem) {
+      parentDOM.replaceChild(tree._elem, prevTree._elem);
+      unmountAll(prevTree);
     } else {
-      var nearRailPoint = this.nearARailPoint();
-      if (nearRailPoint) this.pos = this.getClosestRailPoint();
-
-      if (nearRailPoint && !this.lastMovedFromHere() && !this.level.onALinearPath(this.pos)) {
-        var randomDir = pickRandom(this.level.getDirectionOptions(this.pos));
-
-        if (randomDir) {
-          this.dir = randomDir;
-          this.railGuide();
-          this.lastGate = this.pos.round();
-        }
-      }
+      parentDOM.appendChild(tree._elem);
     }
 
-    var vel = this.dirV.scale(dt * 0.005 * speed);
-    var outcome = this.level.getSafeMove(this.pos, vel);
-
-    if (outcome.safe) {
-      this.pos = outcome.newPos;
-    } else {
-      this.pos = this.pos.round();
+    if (maker.kind === 'html') {
+      assignProps(tree._elem, props);
+      children.forEach(function (ch) {
+        modifyTree2(ch, tree, tree._elem, undefined);
+      });
     }
-  };
-
-  return Ghost;
-}(Agent);
-
-exports.Ghost = Ghost;
-var GHOST_COLORS = ['red', 'blue', 'yellow', 'purple', 'orange', 'firebrick'];
-var difficultyToGhostCount = {
-  easy: 4,
-  medium: 5,
-  hard: 6
-};
-
-var Game =
-/** @class */
-function () {
-  function Game(level) {
-    this.level = level;
-    this.candy = [];
-    this.gameState = 'not-started';
-    this.pacman = Pacman.create(level);
-    this.ghosts = [];
-  }
-
-  Game.prototype.startNewGame = function (difficulty) {
-    var _this = this; // reset pacman
-
-
-    this.pacman = Pacman.create(this.level); // reset ghosts
-
-    var ghostCount = difficultyToGhostCount[difficulty];
-    this.ghosts = GHOST_COLORS.slice(0, ghostCount).map(function (color) {
-      return Ghost.create(_this.level, color);
-    }); // reset candy
-
-    this.level.forEach(function (v, x, y) {
-      if (v && v !== ' ') {
-        _this.candy.push(new pt_1.Pt(x, y));
-      }
-    });
-    this.gameState = 'playing';
-  };
-
-  Game.prototype.tick = function (dt, playerInput, onGameStateChange) {
-    var _this = this;
-
-    if (this.gameState !== 'playing') return;
-    this.pacman.tick(dt, playerInput);
-    this.ghosts.forEach(function (g) {
-      return g.tick(dt, _this.pacman.pos);
-    });
-    this.candy = this.candy.filter(function (c) {
-      return c.dist(_this.pacman.pos) > 1;
-    });
-
-    if (this.pacmanIsNearGhosts()) {
-      this.gameState = 'game-over';
-      onGameStateChange === null || onGameStateChange === void 0 ? void 0 : onGameStateChange(this.gameState);
+  } else if (tree._velem) {
+    if (prevTree) {
+      unmountAll(prevTree);
     }
 
-    if (this.getCandyRemaining() <= 0) {
-      this.gameState = 'you-won';
-      onGameStateChange === null || onGameStateChange === void 0 ? void 0 : onGameStateChange(this.gameState);
-    }
-  };
+    (_a = tree._c) === null || _a === void 0 ? void 0 : _a.componentDidMount();
+    modifyTree2(tree._velem, tree, parentDOM, undefined);
+  } // tree.children.forEach(ch => {
+  // });
+  // old? :(
+  // if (prevTree && prevTree.type === type && children.length === prevTree.children.length) {
+  //     // replace attributes
+  //     const pte = prevTree.getElem()!;
+  //     if(!objectsShallowEqual(props, prevTree.props) && pte.type === 'elem') {
+  //         assignProps(pte.e, props);
+  //     }
+  //     tree._elem = pte.e;
+  //     tree._parent = prevTree._parent;
+  //     if (tree.isTextNode && pte.type === 'text') {
+  //         pte.e.data = tree.toString();
+  //     } else {
+  //         loopThroughChildren(tree, prevTree, (c, pc, i) => {
+  //             modifyTree(c, tree, pc);
+  //         }, (pc, i) => {
+  //             prevTree._elem.removeChild(pc._elem);
+  //             prevTree.componentDidUnmount?.();
+  //         });
+  //     }
+  // } else 
+  // {
+  // replace this node and all children
+  // const element = tree.isTextNode
+  //     ? document.createTextNode(tree.value)
+  //     : document.createElement(type);
+  // tree._elem = element;
+  //     tree._parent = parent;
+  //     if (prevTree) {
+  //         prevTree._parent._elem.replaceChild(element, prevTree._elem);
+  //         prevTree.componentDidUnmount?.();
+  //     } else if (parent) {
+  //         parent._elem.appendChild(element);
+  //     }
+  //     tree.componentDidMount?.();
+  //     const te = tree.getElem();
+  //     if (te && te.type === 'elem')
+  //         assignProps(te.e, props);
+  //     if (props.ref) {
+  //         props.ref(tree._elem);
+  //     }
+  //     loopThroughChildren(tree, prevTree, (c, pc, i) => {
+  //         modifyTree(c, tree, undefined);
+  //     }, (pc, i) => {
+  //         prevTree._elem.removeChild(pc._elem);
+  //         prevTree.componentDidUnmount?.();
+  //     });
+  // }
 
-  Game.prototype.pacmanIsNearGhosts = function () {
-    var pacmanPos = this.pacman.pos;
-    return this.ghosts.some(function (g) {
-      return g.pos.dist(pacmanPos) < 1;
-    });
-  };
-
-  Game.prototype.getCandyRemaining = function () {
-    return this.candy.length;
-  };
-
-  return Game;
-}();
-
-exports.Game = Game;
-
-function signedClamp(x, min, max) {
-  var neg = x < 0;
-  var v = x;
-  if (neg) v = -x;
-  var out = Math.max(Math.min(v, max), min);
-  return neg ? -out : out;
 }
 
-function pickRandom(arr) {
-  if (arr.length === 0) return;
-  return arr[Math.floor(Math.random() * arr.length)];
+exports.modifyTree2 = modifyTree2;
+
+function unmountAll(t) {
+  var _a;
+
+  (_a = t._c) === null || _a === void 0 ? void 0 : _a.componentDidUnmount();
+  t.children.forEach(unmountAll);
 }
-
-function inRange(x, mn, mx) {
-  return mn <= x && x <= mx;
-}
-
-function minMax(a, b) {
-  return [Math.min(a, b), Math.max(a, b)];
-}
-},{"./pt":"pacman/pt.ts"}],"pacman/render.ts":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.drawArc = exports.drawEllipse = exports.drawEye = exports.drawGhost = exports.drawPacMan = void 0;
-
-var drawPacMan = function drawPacMan(ctx, pacman, N) {
-  var size = N * 8 / 10;
-  var pos = pacman.pos.add(1.5, 1.4).scale(N);
-  var mouthOpenPerc = pacman.mouthOpenPerc;
-  var angle = pacman.dirV.getAngle();
-  ctx.translate(pos.x, pos.y);
-  ctx.rotate(angle / (180 / Math.PI));
-  var bx = mouthOpenPerc * Math.PI * 2;
-  ctx.fillStyle = 'yellow';
-  ctx.beginPath();
-  ctx.arc(0, 0, size, bx, bx + Math.PI);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(0, 0, size, Math.PI * 2 - bx - Math.PI, Math.PI * 2 - bx);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(0, 0, size, 0.25 * Math.PI * 2, 0.75 * Math.PI * 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.resetTransform();
-};
-
-exports.drawPacMan = drawPacMan;
-
-var drawGhost = function drawGhost(ctx, ghost, N) {
-  var size = N * 16 / 10;
-  var pos = ghost.pos.add(0.8, 0.6).scale(N);
-  ctx.translate(pos.x, pos.y);
-  ctx.fillStyle = ghost.scared ? 'black' : ghost.color;
-  exports.drawArc(ctx, 0, 0, size * 0.5, 180, 360);
-  ctx.beginPath();
-  ctx.rect(-size * 0.5, -1, size, size * 0.5 + 1);
-  ctx.closePath();
-  ctx.fill();
-
-  for (var i = 0; i < 3; i++) {
-    exports.drawArc(ctx, -size * 0.5 + size / 6 + size / 3 * i, size * 0.4, size / 6, 0, 180);
-  } // eyes
-
-
-  var eyeSize = size * 0.15;
-  ctx.fillStyle = 'white';
-  exports.drawEye(ctx, -0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
-  ctx.fillStyle = 'white';
-  exports.drawEye(ctx, 0.2 * size, -0.15 * size, eyeSize, ghost.dirV);
-  ctx.resetTransform();
-};
-
-exports.drawGhost = drawGhost;
-
-var drawEye = function drawEye(ctx, x, y, size, dir) {
-  ctx.fillStyle = 'white';
-  exports.drawEllipse(ctx, x, y, size, size);
-  ctx.fillStyle = 'black';
-  var pupilSize = size * 0.5;
-  exports.drawEllipse(ctx, x + dir.x * pupilSize, y + dir.y * pupilSize, pupilSize, pupilSize);
-};
-
-exports.drawEye = drawEye;
-
-var drawEllipse = function drawEllipse(ctx, x, y, xRad, yRad) {
-  ctx.beginPath();
-  ctx.ellipse(x, y, xRad, yRad, 0, 0, 360);
-  ctx.closePath();
-  ctx.fill();
-};
-
-exports.drawEllipse = drawEllipse;
-
-var drawArc = function drawArc(ctx, x, y, radius, startAngle, endAngle) {
-  var scalar = Math.PI * 2 * (1 / 360);
-  ctx.beginPath();
-  ctx.arc(x, y, radius, scalar * startAngle, scalar * endAngle);
-  ctx.closePath();
-  ctx.fill();
-};
-
-exports.drawArc = drawArc;
-},{}],"pacman/game_controls.ts":[function(require,module,exports) {
-"use strict";
-
-var __extends = this && this.__extends || function () {
-  var _extendStatics = function extendStatics(d, b) {
-    _extendStatics = Object.setPrototypeOf || {
-      __proto__: []
-    } instanceof Array && function (d, b) {
-      d.__proto__ = b;
-    } || function (d, b) {
-      for (var p in b) {
-        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
-      }
-    };
-
-    return _extendStatics(d, b);
-  };
-
-  return function (d, b) {
-    _extendStatics(d, b);
-
-    function __() {
-      this.constructor = d;
-    }
-
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-  };
-}();
-
-var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
-  if (k2 === undefined) k2 = k;
-  Object.defineProperty(o, k2, {
-    enumerable: true,
-    get: function get() {
-      return m[k];
-    }
-  });
-} : function (o, m, k, k2) {
-  if (k2 === undefined) k2 = k;
-  o[k2] = m[k];
-});
-
-var __setModuleDefault = this && this.__setModuleDefault || (Object.create ? function (o, v) {
-  Object.defineProperty(o, "default", {
-    enumerable: true,
-    value: v
-  });
-} : function (o, v) {
-  o["default"] = v;
-});
-
-var __importStar = this && this.__importStar || function (mod) {
-  if (mod && mod.__esModule) return mod;
-  var result = {};
-  if (mod != null) for (var k in mod) {
-    if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-  }
-
-  __setModuleDefault(result, mod);
-
-  return result;
-};
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.ButtonControls = exports.KeyboardInstructions = exports.setupKeyboardControls = exports.Controller = void 0;
-
-var LReact = __importStar(require("../l_react"));
-
-var Controller =
-/** @class */
-function () {
-  function Controller() {
-    this.buttons = new Map();
-  }
-
-  Controller.prototype.isPressed = function (d) {
-    return !!this.buttons.get(d);
-  };
-
-  Controller.prototype.reset = function () {
-    this.buttons.clear();
-  };
-
-  Controller.prototype.setFromKeyboard = function (key, on) {
-    var d = Controller.keyboardKeyToDir(key);
-
-    if (d) {
-      this.setV(d, on);
-    }
-  };
-
-  Controller.prototype.setV = function (d, on) {
-    this.buttons.set(d, on);
-  };
-
-  Controller.keyboardKeyToDir = function (key) {
-    switch (key) {
-      case 'ArrowUp':
-        return 'up';
-
-      case 'ArrowRight':
-        return 'right';
-
-      case 'ArrowLeft':
-        return 'left';
-
-      case 'ArrowDown':
-        return 'down';
-    }
-
-    return undefined;
-  };
-
-  return Controller;
-}();
-
-exports.Controller = Controller;
-
-var setupKeyboardControls = function setupKeyboardControls(controller) {
-  var keyDownListener = function keyDownListener(e) {
-    controller.setFromKeyboard(e.key, true);
-  };
-
-  document.body.addEventListener('keydown', keyDownListener);
-
-  var keyUpListener = function keyUpListener(e) {
-    controller.setFromKeyboard(e.key, false);
-  };
-
-  document.body.addEventListener('keyup', keyUpListener);
-  return function () {
-    document.body.removeEventListener('keydown', keyDownListener);
-    document.body.removeEventListener('keyup', keyUpListener);
-  };
-};
-
-exports.setupKeyboardControls = setupKeyboardControls;
-
-var KeyboardInstructions = function KeyboardInstructions() {
-  return LReact.Node('div', {
-    style: {
-      fontSize: '24px',
-      display: 'grid',
-      justifyContent: 'center',
-      gridTemplateColumns: 'minmax(auto, 400px)',
-      textAlign: 'center'
-    }
-  }, [LReact.Text("\n            You can use the up, down, left and right arrow keys to move pacman.\n        ")]);
-};
-
-exports.KeyboardInstructions = KeyboardInstructions;
-var BUTTON_SIZE = 70;
-
-var BlankDiv = function BlankDiv() {
-  return LReact.Node('div');
-};
-
-var ButtonControls =
-/** @class */
-function (_super) {
-  __extends(ButtonControls, _super);
-
-  function ButtonControls() {
-    var _this = _super !== null && _super.apply(this, arguments) || this;
-
-    _this.dirToEmoji = new Map([['up', '⬆️'], ['left', '⬅️'], ['right', '➡️'], ['down', '⬇️']]);
-    return _this;
-  }
-
-  ButtonControls.prototype.render = function () {
-    var _this = this;
-
-    var controller = this.props.controller;
-    var directionsList = Array.from(this.dirToEmoji.keys());
-    var buttons = directionsList.map(function (d) {
-      var _a;
-
-      return LReact.Node('button', {
-        onTouchStart: function onTouchStart(e) {
-          controller.setV(d, true);
-          e.preventDefault();
-          e.stopPropagation();
-          console.log(controller.isPressed(d));
-        },
-        onTouchEnd: function onTouchEnd(e) {
-          controller.setV(d, false);
-          e.preventDefault();
-          e.stopPropagation();
-        },
-        style: {
-          width: BUTTON_SIZE + "px",
-          height: BUTTON_SIZE + "px",
-          fontSize: '50px',
-          userSelect: 'none',
-          borderRadius: '0px',
-          border: '0px solid black',
-          padding: '0',
-          margin: '0',
-          overflow: 'hidden'
-        }
-      }, [LReact.Text((_a = _this.dirToEmoji.get(d)) !== null && _a !== void 0 ? _a : d)]);
-    });
-    return LReact.Node('div', {
-      style: {
-        width: "100%",
-        height: BUTTON_SIZE * 3 + "px",
-        border: '1px solid red',
-        display: 'grid',
-        justifyContent: 'center',
-        gridAutoFlow: 'row',
-        gridTemplateRows: "repeat(3, " + BUTTON_SIZE + "px)",
-        gridTemplateColumns: "repeat(3, " + BUTTON_SIZE + "px)"
-      }
-    }, [LReact.Node(BlankDiv), buttons[0], LReact.Node(BlankDiv), buttons[1], LReact.Node(BlankDiv), buttons[2], LReact.Node(BlankDiv), buttons[3], LReact.Node(BlankDiv)]);
-  };
-
-  return ButtonControls;
-}(LReact.Component);
-
-exports.ButtonControls = ButtonControls;
-},{"../l_react":"l_react.ts"}],"pacman/index.ts":[function(require,module,exports) {
+},{}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -1547,653 +923,188 @@ var __spreadArrays = this && this.__spreadArrays || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.GameComponent = void 0;
 
-var LReact = __importStar(require("../l_react"));
+var LReact = __importStar(require("./l_react2")); // import { GameComponent } from './pacman/index';
 
-var game_1 = require("./game");
 
-var pt_1 = require("./pt");
+var Element = LReact.Element;
 
-var render_1 = require("./render");
+function ListElem(_a) {
+  var v = _a.v;
 
-var Node = LReact.Node,
-    Text = LReact.Text;
+  var _b = LReact.useState(false),
+      bigFont = _b[0],
+      setBigFont = _b[1];
 
-var game_controls_1 = require("./game_controls");
-
-var GameComponent =
-/** @class */
-function (_super) {
-  __extends(GameComponent, _super);
-
-  function GameComponent(props) {
-    var _this = _super.call(this, props) || this;
-
-    _this.controller = new game_controls_1.Controller();
-
-    _this.componentDidMount = function () {
-      _this.windowResizeListener = function () {
-        var w = window.innerWidth;
-        var h = window.innerHeight;
-
-        if (w !== _this.state.windowSize.w || h !== _this.state.windowSize.h) {
-          _this.setState({
-            windowSize: {
-              w: w,
-              h: h
-            }
-          });
-        }
-      };
-
-      window.addEventListener('resize', _this.windowResizeListener);
-    };
-
-    _this.componentDidUnmount = function () {
-      if (_this.windowResizeListener) {
-        window.removeEventListener('resize', _this.windowResizeListener);
-        _this.windowResizeListener = undefined;
-      }
-    };
-
-    _this.startGame = function (difficulty) {
-      _this.game.startNewGame(difficulty);
-
-      _this.setState({
-        state: _this.game.gameState
-      });
-    };
-
-    _this.pause = function () {
-      _this.setGameState('paused');
-    };
-
-    _this.unpause = function () {
-      _this.setGameState('playing');
-    };
-
-    _this.restartGame = function () {
-      _this.setGameState('not-started');
-    };
-
-    _this.setGameState = function (s) {
-      _this.game.gameState = s;
-
-      _this.setState({
-        state: s
-      });
-    };
-
-    _this.level = game_1.Level.createLevel1();
-    _this.game = new game_1.Game(_this.level);
-    _this.state = {
-      state: _this.game.gameState,
-      windowSize: {
-        w: window.innerWidth,
-        h: window.innerHeight
-      }
-    };
-    return _this;
-  }
-
-  GameComponent.prototype.render = function () {
-    var _this = this;
-
-    var useMobileControls = this.useMobileControls;
-    var _a = this.gameRenderScaleAndSize,
-        gameRenderScale = _a.gameRenderScale,
-        size = _a.size;
-    return Node('div', {}, [Node('div', {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: size.w + "px",
-        margin: 'auto auto'
-      }
-    }, [Node(LiveGameScore, {
-      g: this.game
-    }), Node('button', {
-      onClick: function onClick() {
-        _this.game.gameState = 'paused';
-
-        _this.setState({
-          state: 'paused'
-        });
-      }
-    }, [Text('pause')])]), Node(LevelGameContainer, size, [Node(RenderedLevel, {
-      level: this.level,
-      N: gameRenderScale
-    }), this.renderGameState()]), useMobileControls ? Node(game_controls_1.ButtonControls, {
-      controller: this.controller
-    }) : Node(game_controls_1.KeyboardInstructions)]);
-  };
-
-  Object.defineProperty(GameComponent.prototype, "useMobileControls", {
-    get: function get() {
-      return this.state.windowSize.w < 400;
-    },
-    enumerable: false,
-    configurable: true
-  });
-  Object.defineProperty(GameComponent.prototype, "gameRenderScaleAndSize", {
-    get: function get() {
-      var windowSize = this.state.windowSize;
-      var s = Math.min(windowSize.w - 16, 600);
-      var size = {
-        w: s,
-        h: s + 10
-      };
-      return {
-        gameRenderScale: size.w / (this.level.w + 2),
-        size: size
-      };
-    },
-    enumerable: false,
-    configurable: true
-  });
-
-  GameComponent.prototype.renderGameState = function () {
-    var _this = this;
-
-    var gameRenderScale = this.gameRenderScaleAndSize.gameRenderScale;
-
-    switch (this.game.gameState) {
-      case 'playing':
-        return Node(AnimatedGame, {
-          game: this.game,
-          gameRenderScale: gameRenderScale,
-          controller: this.controller,
-          onGameStateChange: function onGameStateChange(s) {
-            return _this.setState({
-              state: s
-            });
-          }
-        }, []);
-
-      case 'not-started':
-        return Node(MenuOverlay, {}, [Node(StartGameMenu, {
-          startGame: this.startGame
-        })]);
-
-      case 'game-over':
-        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
-          restart: this.restartGame,
-          message: 'Oh, sorry you lost 😭',
-          buttonText: 'Play Again'
-        })]);
-
-      case 'you-won':
-        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
-          restart: this.restartGame,
-          message: 'You Won!! 🎉',
-          buttonText: 'Play Again'
-        })]);
-
-      case 'paused':
-        return Node(MenuOverlay, {}, [Node(GameOverMenu, {
-          restart: this.unpause,
-          message: 'paused',
-          buttonText: 'back'
-        })]);
-    }
-  };
-
-  return GameComponent;
-}(LReact.Component);
-
-exports.GameComponent = GameComponent;
-
-var LiveGameScore =
-/** @class */
-function (_super) {
-  __extends(LiveGameScore, _super);
-
-  function LiveGameScore(props) {
-    var _this = _super.call(this, props) || this;
-
-    _this.componentDidMount = function () {
-      _this.intervalId = setInterval(_this.maybeUpdateScore, 30);
-    };
-
-    _this.componentDidUnmount = function () {
-      if (_this.intervalId != null) clearInterval(_this.intervalId);
-      _this.intervalId = undefined;
-    };
-
-    _this.maybeUpdateScore = function () {
-      var newScore = _this.props.g.getCandyRemaining();
-
-      if (newScore !== _this.state.score) {
-        _this.setState({
-          score: newScore
-        });
-      }
-    };
-
-    _this.state = {
-      score: props.g.getCandyRemaining()
-    };
-    return _this;
-  }
-
-  LiveGameScore.prototype.render = function () {
-    return Node('div', {}, [Text('score: ' + this.state.score)]);
-  };
-
-  return LiveGameScore;
-}(LReact.Component);
-
-var AnimatedGame =
-/** @class */
-function (_super) {
-  __extends(AnimatedGame, _super);
-
-  function AnimatedGame(props) {
-    var _this = _super.call(this, props) || this;
-
-    _this.componentDidMount = function () {
-      _this.gameLoop();
-
-      _this.setupEventListeners();
-    };
-
-    _this.componentDidUnmount = function () {
-      var _a;
-
-      (_a = _this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(_this);
-
-      _this.props.controller.reset();
-
-      if (_this.animationRequest !== undefined) {
-        cancelAnimationFrame(_this.animationRequest);
-        _this.animationRequest = undefined;
-      }
-    };
-
-    _this.canvasSet = function (canvas) {
-      var ctx = canvas.getContext('2d');
-      _this.ctx = ctx;
-    };
-
-    return _this;
-  }
-
-  Object.defineProperty(AnimatedGame.prototype, "canvasPixel", {
-    get: function get() {
-      return new pt_1.Pt(this.props.game.level.w, this.props.game.level.h);
-    },
-    enumerable: false,
-    configurable: true
-  });
-  Object.defineProperty(AnimatedGame.prototype, "canvasSize", {
-    get: function get() {
-      var gameRenderScale = this.props.gameRenderScale;
-      var level = this.props.game.level;
-      var w = (level.w + 1) * gameRenderScale;
-      var h = (level.h + 1) * gameRenderScale;
-      return {
-        w: w,
-        h: h
-      };
-    },
-    enumerable: false,
-    configurable: true
-  });
-
-  AnimatedGame.prototype.render = function () {
-    var gameRenderScale = this.props.gameRenderScale;
-    var canvasSize = this.canvasSize;
-    console.log(this.props.gameRenderScale, this);
-    return Node('canvas', {
-      ref: this.canvasSet,
-      width: canvasSize.w,
-      height: canvasSize.h,
-      style: {
-        width: canvasSize.w + "px",
-        height: canvasSize.h + "px",
-        position: 'absolute',
-        zIndex: 2,
-        top: gameRenderScale * 0.5 + 'px',
-        left: gameRenderScale * 0.5 + 'px'
-      }
-    });
-  };
-
-  AnimatedGame.prototype.setupEventListeners = function () {
-    var _a;
-
-    (_a = this.killEventListeners) === null || _a === void 0 ? void 0 : _a.call(this);
-    var controller = this.props.controller;
-    controller.reset();
-    this.killEventListeners = game_controls_1.setupKeyboardControls(this.props.controller);
-  };
-
-  AnimatedGame.prototype.getPlayerInputDir = function () {
-    for (var _i = 0, DIRECTIONS_1 = game_1.DIRECTIONS; _i < DIRECTIONS_1.length; _i++) {
-      var d = DIRECTIONS_1[_i];
-      if (this.props.controller.isPressed(d)) return d;
-    }
-  };
-
-  AnimatedGame.prototype.gameLoop = function () {
-    var _this = this;
-
-    var prevDelta = 0;
-
-    var loop = function loop(delta) {
-      var N = _this.props.gameRenderScale;
-      console.log(N, _this);
-      var ctx = _this.ctx;
-      var game = _this.props.game;
-      if (!ctx) return;
-      var dt = delta - prevDelta;
-      prevDelta = delta;
-      game.tick(dt, _this.getPlayerInputDir(), _this.props.onGameStateChange);
-      var canvasSize = _this.canvasSize;
-      ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
-      ctx.translate(-N * 0.6, -N * 0.6);
-      game.candy.forEach(function (c) {
-        var p = c.add(1.5, 1.5).scale(N);
-        ctx.fillStyle = 'pink';
-        render_1.drawEllipse(ctx, p.x, p.y, 2, 2);
-      });
-      render_1.drawPacMan(ctx, game.pacman, N);
-      game.ghosts.forEach(function (g) {
-        return render_1.drawGhost(ctx, g, N);
-      });
-      ctx.resetTransform();
-      if (_this.animationRequest !== undefined) _this.animationRequest = requestAnimationFrame(loop);
-    };
-
-    this.animationRequest = requestAnimationFrame(loop);
-  };
-
-  return AnimatedGame;
-}(LReact.Component);
-
-var MenuOverlay = function MenuOverlay(_a) {
-  var children = _a.children;
-  return Node('div', {
+  console.log('render ListElem');
+  return Element('li', {
     style: {
-      width: '100%',
-      height: '100%',
-      backdropFilter: 'blur(5px)'
+      fontSize: bigFont ? '20px' : '10px'
     }
-  }, children);
-};
-
-var StartGameMenu = function StartGameMenu(_a) {
-  var startGame = _a.startGame;
-
-  var _b = LReact.useState('easy'),
-      difficulty = _b[0],
-      setDifficulty = _b[1];
-
-  var CheckBox = function CheckBox(_a) {
-    var d = _a.d;
-    return Node('div', {
-      style: {
-        display: 'grid',
-        gridAutoFlow: 'column',
-        gridGap: '16px',
-        alignItems: 'center',
-        gridTemplateColumns: '200px 1fr'
-      }
-    }, [Node('label', {
-      style: {
-        fontSize: '20px'
-      }
-    }, [Text(d)]), Node('input', {
-      type: 'checkbox',
-      checked: difficulty === d,
-      onChange: function onChange(e) {
-        if (d === difficulty) {
-          e.target.checked = true;
-        } else {
-          console.log('set diff');
-          setDifficulty(d);
-        }
-      }
-    })]);
-  };
-
-  return Node('div', {
-    style: {
-      color: 'orange',
-      fontSize: '40px',
-      width: '100%',
-      height: '100%',
-      display: 'grid',
-      gridAutoFlow: 'row',
-      justifyItems: 'center',
-      alignItems: 'center',
-      gridGap: '24px',
-      alignContent: 'center',
-      gridTemplateRows: 'repeat(4, min-content)',
-      background: 'rgba(0,0,0,0.5)'
-    }
-  }, [Text("start game"), Node('div', {
-    style: {
-      display: 'grid',
-      gridAutoFlow: 'row',
-      gridGap: '8px'
-    }
-  }, [Node(CheckBox, {
-    d: 'easy'
-  }), Node(CheckBox, {
-    d: 'medium'
-  }), Node(CheckBox, {
-    d: 'hard'
-  })]), Node(BigButton, {
+  }, ["val=" + v, Element('button', {
     onClick: function onClick() {
-      return startGame(difficulty);
-    },
-    label: 'Play'
-  })]);
-};
-
-var GameOverMenu = function GameOverMenu(_a) {
-  var restart = _a.restart,
-      message = _a.message,
-      buttonText = _a.buttonText;
-  return Node('div', {
-    style: {
-      background: 'rgba(0,0,0,0.5)',
-      width: '100%',
-      height: '100%',
-      display: 'grid',
-      gridTemplateRows: 'min-content min-content',
-      alignContent: 'center',
-      justifyContent: 'center',
-      gridGap: '16px'
+      console.log('big font for ', v);
+      setBigFont(true);
     }
-  }, [Node('div', {
-    style: {
-      textAlign: 'center',
-      color: 'orange',
-      fontSize: '30px'
-    }
-  }, [Text(message)]), Node(BigButton, {
-    onClick: restart,
-    label: buttonText
-  })]);
-};
-
-var BigButton = function BigButton(_a) {
-  var label = _a.label,
-      onClick = _a.onClick;
-  return Node('button', {
-    style: {
-      fontSize: '40px',
-      width: '100%',
-      maxWidth: '250px',
-      cursor: 'pointer'
-    },
-    onClick: onClick
-  }, [Text(label)]);
-};
-
-var LevelGameContainer = function LevelGameContainer(_a) {
-  var w = _a.w,
-      h = _a.h,
-      children = _a.children;
-  return Node('div', {
-    style: {
-      backgroundColor: 'lightblue',
-      display: 'grid',
-      placeItems: 'center',
-      overflow: 'hidden',
-      boxSizing: 'border-box'
-    }
-  }, [Node('div', {
-    style: {
-      width: w + "px",
-      height: h + "px",
-      position: 'relative'
-    }
-  }, children)]);
-};
-
-function RenderedLevel(_a) {
-  var level = _a.level,
-      N = _a.N;
-  var thick = 2;
-  var halfThick = thick * 0.5;
-  var offset = new pt_1.Pt(N, N);
-  var blocks = [];
-
-  for (var y = 0; y < level.h; y++) {
-    for (var x = 0; x < level.w; x++) {
-      if (level.isPath(x, y)) {
-        var center = new pt_1.Pt(x + 0.5, y + 0.5);
-        var topLeft = center.add(-halfThick, -halfThick);
-        blocks.push(Node(Block, {
-          top: topLeft.y * N + offset.y,
-          left: topLeft.x * N + offset.x,
-          width: N * thick,
-          height: N * thick,
-          color: 'black'
-        }));
-      }
-    }
-  }
-
-  return Node('div', {}, __spreadArrays(blocks));
+  }, ['use big font size?'])]);
 }
 
-var Block = function Block(_a) {
-  var top = _a.top,
-      left = _a.left,
-      width = _a.width,
-      height = _a.height,
-      _b = _a.color,
-      color = _b === void 0 ? 'blue' : _b;
-  return Node('div', {
-    style: {
-      width: width + "px",
-      height: (height !== null && height !== void 0 ? height : width) + "px",
-      position: 'absolute',
-      top: top + "px",
-      left: left + "px",
-      backgroundColor: color
-    }
-  });
-};
-},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
-"use strict";
+var Lister =
+/** @class */
+function (_super) {
+  __extends(Lister, _super);
 
-var __extends = this && this.__extends || function () {
-  var _extendStatics = function extendStatics(d, b) {
-    _extendStatics = Object.setPrototypeOf || {
-      __proto__: []
-    } instanceof Array && function (d, b) {
-      d.__proto__ = b;
-    } || function (d, b) {
-      for (var p in b) {
-        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
-      }
+  function Lister(props) {
+    var _this = _super.call(this, props) || this;
+
+    _this.push = function () {
+      _this.setState({
+        len: _this.state.len + 1
+      });
     };
 
-    return _extendStatics(d, b);
-  };
+    _this.pop = function () {
+      _this.setState({
+        len: Math.max(_this.state.len - 1, 0)
+      });
+    };
 
-  return function (d, b) {
-    _extendStatics(d, b);
-
-    function __() {
-      this.constructor = d;
-    }
-
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-  };
-}();
-
-var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
-  if (k2 === undefined) k2 = k;
-  Object.defineProperty(o, k2, {
-    enumerable: true,
-    get: function get() {
-      return m[k];
-    }
-  });
-} : function (o, m, k, k2) {
-  if (k2 === undefined) k2 = k;
-  o[k2] = m[k];
-});
-
-var __setModuleDefault = this && this.__setModuleDefault || (Object.create ? function (o, v) {
-  Object.defineProperty(o, "default", {
-    enumerable: true,
-    value: v
-  });
-} : function (o, v) {
-  o["default"] = v;
-});
-
-var __importStar = this && this.__importStar || function (mod) {
-  if (mod && mod.__esModule) return mod;
-  var result = {};
-  if (mod != null) for (var k in mod) {
-    if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    _this.state = {
+      len: 0
+    };
+    return _this;
   }
 
-  __setModuleDefault(result, mod);
+  Lister.prototype.componentDidMount = function () {
+    console.log('luke mounted');
+  };
 
-  return result;
-};
+  Lister.prototype.componentDidUnmount = function () {
+    console.log('luke unmounted');
+  };
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
+  Lister.prototype.render = function () {
+    return Element('div', {
+      style: {
+        color: 'firebrick',
+        border: '1px dashed green'
+      }
+    }, __spreadArrays([Element('h4', {}, ['MY LIST:'])], Array.from({
+      length: this.state.len
+    }, function (_, i) {
+      return Element(ListElem, {
+        v: i
+      });
+    }), [Element('button', {
+      onClick: this.push
+    }, ['add']), Element('button', {
+      onClick: this.pop
+    }, ['remove'])]));
+  };
 
-var LReact = __importStar(require("./l_react"));
+  return Lister;
+}(LReact.Component);
 
-var index_1 = require("./pacman/index");
+var Luke =
+/** @class */
+function (_super) {
+  __extends(Luke, _super);
+
+  function Luke() {
+    return _super !== null && _super.apply(this, arguments) || this;
+  }
+
+  Luke.prototype.componentDidMount = function () {
+    console.log('luke mounted');
+  };
+
+  Luke.prototype.componentDidUnmount = function () {
+    console.log('luke unmounted');
+  };
+
+  Luke.prototype.render = function () {
+    return Element('div', {
+      style: {
+        color: 'firebrick',
+        backgroundColor: 'lightblue',
+        padding: '20px'
+      }
+    }, ['luke here']);
+  };
+
+  return Luke;
+}(LReact.Component);
 
 var Peanut =
 /** @class */
 function (_super) {
   __extends(Peanut, _super);
 
-  function Peanut() {
-    return _super !== null && _super.apply(this, arguments) || this;
+  function Peanut(props) {
+    var _this = _super.call(this, props) || this;
+
+    _this.componentDidMount = function () {
+      console.log('Peanut mounted!');
+    };
+
+    _this.componentDidUnmount = function () {
+      console.log('Peanut unmounted!');
+    };
+
+    _this.changeToBlue = function () {
+      _this.setState({
+        color: 'blue'
+      });
+    };
+
+    _this.changeToGreen = function () {
+      _this.setState({
+        color: 'green'
+      });
+    };
+
+    _this.state = {
+      color: 'green'
+    };
+    return _this;
   }
 
   Peanut.prototype.render = function () {
-    return LReact.Node('div', {}, [LReact.Node(index_1.GameComponent, {}, [])]);
+    var _this = this;
+
+    var color = this.state.color;
+    return Element('div', {
+      style: {
+        color: color
+      }
+    }, ['START', Element(Lister), color === 'green' ? Element('button', {
+      onClick: function onClick() {
+        return _this.changeToBlue();
+      }
+    }, ['to blue']) : null, color === 'blue' ? Element('button', {
+      onClick: function onClick() {
+        return _this.changeToGreen();
+      }
+    }, ['to green']) : null, color === 'green' ? Element(Luke) : null, 'END']);
   };
 
   return Peanut;
-}(LReact.Component);
+}(LReact.Component); // function Cool() {
+//     return LReact.Node('div', {}, [
+//         Element(Peanut),
+//     ]);
+// };
 
-function Cool() {
-  return LReact.Node('div', {}, [LReact.Node(Peanut)]);
+
+function Cool2(_a) {
+  return Element('div', {}, ['Cool2', Element(Peanut)]);
 }
 
 ;
-LReact.Init(LReact.Node(Cool), document.body);
-},{"./l_react":"l_react.ts","./pacman/index":"pacman/index.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+var A = Element('div', {}, [Element('h1', {}, ['hello world']), Element('div', {}, [Element('p', {}, ['what would you like?']), Element(Cool2, {})]), Element('footer', {}, ['I am footer'])]);
+console.log(A);
+LReact.RenderDom(Element(Peanut), document.body); // LReact.Init(LReact.Node(Cool), document.body);
+},{"./l_react2":"l_react2.ts"}],"../../../.nvm/versions/node/v12.13.1/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
