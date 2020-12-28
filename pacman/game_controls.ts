@@ -53,7 +53,7 @@ type ButtonControlsProps = {
     controller: Controller,
 };
 
-const BUTTON_SIZE = 80;
+const BUTTON_SIZE = 70;
 
 const BlankDiv = () => LReact.Node('div');
 
@@ -69,31 +69,38 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
         const directionsList = Array.from(this.dirToEmoji.keys());
         const buttons = directionsList.map((d: Dir): LReact.VElem => {
             return LReact.Node('button', {
-                onMouseDown: (e) => {
+                onTouchStart: (e) => {
                     controller.setV(d, true);
                     e.preventDefault();
-                    console.log('mouse down', d)
+                    e.stopPropagation();
+                    console.log(controller.isPressed(d))
                 },
-                onMouseUp: (e) => {
+                onTouchEnd: (e) => {
                     controller.setV(d, false);
                     e.preventDefault();
-                    console.log('mouse up', d)
+                    e.stopPropagation();
                 },
                 style: {
                     width: `${BUTTON_SIZE}px`,
                     height: `${BUTTON_SIZE}px`,
                     fontSize: '50px',
                     userSelect: 'none',
+                    borderRadius: '0px',
+                    border: '0px solid black',
+                    padding: '0',
+                    margin: '0',
+                    overflow: 'hidden',
                 },
             }, [LReact.Text(this.dirToEmoji.get(d) ?? d)]);
         });
 
         return LReact.Node('div', {
             style: {
-                width: `${BUTTON_SIZE * 3}px`,
+                width: `100%`,
                 height: `${BUTTON_SIZE * 3}px`,
                 border: '1px solid red',
                 display: 'grid',
+                justifyContent: 'center',
                 gridAutoFlow: 'row',
                 gridTemplateRows: `repeat(3, ${BUTTON_SIZE}px)`,
                 gridTemplateColumns: `repeat(3, ${BUTTON_SIZE}px)`,

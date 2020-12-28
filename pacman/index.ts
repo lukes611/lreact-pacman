@@ -39,7 +39,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
     render() {
         const { windowSize } = this.state;
 
-        const s = Math.min(windowSize.w - 16, 400);
+        const s = Math.min(windowSize.w - 16, 600);
         
         const size = {
             w: s,
@@ -139,7 +139,6 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     }
 
     getPlayerInputDir(): Dir | undefined {
-        console.log('RIGHT', this.props.controller.isPressed('right'));
         for (const d of DIRECTIONS) {
             if (this.props.controller.isPressed(d)) return d;
         }
