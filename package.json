@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "parcel src/index.html",
-    "build": "parcel build src/index.html --out-dir ./ --no-minify"
+    "build": "parcel build src/index.html --out-dir . --public-url /lreact-pacman/ --no-minify"
   },
   "repository": {
     "type": "git",
