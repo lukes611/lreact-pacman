@@ -1,4 +1,4 @@
-import * as LReact from '/l_react';
+import * as LReact from '../l_react';
 import { Level, Game, Dir, DIRECTIONS, GameState, Difficulty } from './game';
 import { Pt } from './pt';
 import { drawPacMan, drawGhost, drawEllipse } from './render';
@@ -302,7 +302,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
 const MenuOverlay = ({
     children,
 }: {
-    children?: LReact._Element[],
+    children?: LReact.LReactElement[],
 }) => {
     return Element('div', {
         style: {
@@ -440,7 +440,7 @@ const BigButton = ({
 const LevelGameContainer = ({ w, h, children }: {
     w: number,
     h: number,
-    children?: LReact._Element[],
+    children?: LReact.LReactElement[],
 }) => {
     return Element('div', {
         style: {

@@ -1,5 +1,5 @@
 type ComponentMakerKind =
-    | { kind: 'f', f: (p: object) => _Element }
+    | { kind: 'f', f: (p?: object) => _Element }
     | { kind: 'c', c: new (p: object) => Component }
     | { kind: 'html', type: string }
     | { kind: 'string', value: string };
@@ -11,7 +11,7 @@ export class _Element {
     _velem?: _Element;
     _dom?: HTMLElement;
     _c?: Component<any, any>;
-    _useStateSys?: UseStateSystem<any>;
+    _useStateSysList?: UseStateSystem<any>[];
 
     constructor(public maker: ComponentMakerKind, public props: Record<string, any>, public children: _Element[]) {
         if (this.maker.kind === 'c') this._name = this.maker.c.constructor.name;
@@ -25,15 +25,10 @@ export class _Element {
                 this._velem = this._c?.render();
             }; break;
             case 'f': {
-                currentUseStateSystem.takeout();
+                useStateController.reset();
                 this._velem = this.maker.f(this.props);
-                const useStateSys = currentUseStateSystem.get();
-                if (useStateSys) {
-                    const sys = useStateSys;
-                    this._useStateSys = sys;
-                    sys.repaint = () => repaint2(this);
-                }
-                currentUseStateSystem.pop();
+                this._useStateSysList = useStateController.maybeGetList(() => repaint2(this));
+                useStateController.reset();
             }; break;
             case 'html': {
                 this._elem = document.createElement(this.maker.type);
@@ -62,6 +57,10 @@ export class _Element {
     }
 }
 
+export { _Element as LReactElement };
+
+type ComponentConstructor<P extends {} = {}, S extends {} = {}> = new(p: P) => Component<P, S>;
+
 type MakerType<P extends object, S extends object> =
     | string // eg. div, img, href
     | ComponentConstructor<P, S>
@@ -86,9 +85,9 @@ export function Element<P extends object, S extends object>(type: MakerType<P, S
     }
 }
 
-export abstract class Component<Props extends object = {}, State extends object = {}> {
+export abstract class Component<Props extends {} = {}, State extends {} | void = void> {
     props: Props;
-    state?: State;
+    state: State;
 
     _vnode?: _Element;
     paint?: (x: Component<Props, State>) => void;
@@ -99,7 +98,7 @@ export abstract class Component<Props extends object = {}, State extends object 
         this.props = props;
     }
 
-    setState(s: Partial<State>) {
+    public setState(s: Partial<State>) {
         if (this.state) {
             this.state = {
                 ...this.state,
@@ -109,7 +108,7 @@ export abstract class Component<Props extends object = {}, State extends object 
         }
     }
 
-    abstract render(): _Element;
+    public abstract render(): _Element;
 }
 
 function isAComponentClass(x: any) {
@@ -134,55 +133,54 @@ class UseStateSystem<T> {
         this.repaint?.();
     }
 }
+class UseStateController {
+    private mode: 'push' | 'pop' = 'push';
+    private list: UseStateSystem<any>[];
+    private index: number = 0;
 
-class CurrentUseStateSystem {
-    _list: (UseStateSystem<any> | undefined)[] = [undefined];
-    
-    takeout() {
-        this._list.push(undefined);
+    reset() {
+        this.mode = 'push';
+        this.list = [];
+        this.index = 0;
     }
 
-    get() {
-        return this._list[this.lastIndex];
-    }
-
-    get lastIndex() {
-        return this._list.length - 1;
-    }
-
-    useSlot(v: any) {
-        if (this._list[this.lastIndex]) {
-            return this._list[this.lastIndex];
+    getSys<T>(s: T): UseStateSystem<T> {
+        if (this.mode === 'push') {
+            const sys = new UseStateSystem(s);
+            this.list.push(sys);
+            return sys;
+        } else { // pop mode
+            return this.list[this.index++];
         }
-        const x = new UseStateSystem(v);
-        this._list[this.lastIndex] = x;
-        return x;
     }
 
-    useUseStateSys(sys: UseStateSystem<any>) {
-        this.takeout();
-        this._list[this.lastIndex] = sys;
+    setupForConsumer(list: UseStateSystem<any>[]) {
+        this.list = list;
+        this.index = 0;
+        this.mode = 'pop';
     }
 
-    pop() {
-        if (this._list.length >= 1) this._list.pop();
-        else this._list[0] = undefined;
+    maybeGetList(repaint: () => void): UseStateSystem<any>[] | undefined {
+        if (this.mode === 'push' && this.list.length) {
+            return [...this.list].map(sys => {
+                sys.repaint = repaint;
+                return sys;
+            });
+        }
+        return;
     }
-}
+} 
 
-const currentUseStateSystem = new CurrentUseStateSystem();
+const useStateController = new UseStateController();
 
 export const useState = <T>(state: T): UseStateConfig<T> => {
-    
-    const sys = currentUseStateSystem.useSlot(state);
+    const sys = useStateController.getSys(state);
     
     return [
         sys.v,
         (v: T) => sys.set(v),
     ];
 };
-
-type ComponentConstructor<P extends object = {}, S extends object = {}> = new(p: P) => Component<P, S>;
 
 
 type BothFn = (
@@ -250,15 +248,12 @@ function repaint2<P extends object, S extends object>(e: _Element) {
     if (e.maker.kind === 'c') {
         newTree = e._c.render();
     } else if (e.maker.kind === 'f') {
-        const hasUSS = !!e._useStateSys;
-        if (hasUSS) {
-            currentUseStateSystem.useUseStateSys(e._useStateSys);
-
+        if (e._useStateSysList) {
+            useStateController.setupForConsumer(e._useStateSysList);
+            console.log('setup', useStateController);
         }
         newTree = e.maker.f(e.props);
-        if (hasUSS) {
-            currentUseStateSystem.pop();
-        }
+        useStateController.reset();
     }
     
     const parent = oldTree?._parent;
@@ -295,7 +290,7 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             if (tree._c) {
                 tree._c.props = props;
             }
-            tree._useStateSys = prevTree._useStateSys;
+            tree._useStateSysList = prevTree._useStateSysList;
             tree.createElement();
             // removeElements(prevTree);
             // unmountAll(prevTree._velem);

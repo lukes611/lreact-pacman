@@ -84,7 +84,7 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
     render() {
         const controller = this.props.controller;
         const directionsList = Array.from(this.dirToEmoji.keys());
-        const buttons = directionsList.map((d: Dir): LReact._Element => {
+        const buttons = directionsList.map((d: Dir): LReact.LReactElement => {
             return LReact.Element('button', {
                 onTouchStart: (e) => {
                     controller.setV(d, true);

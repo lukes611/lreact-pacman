@@ -136,10 +136,24 @@ var __assign = this && this.__assign || function () {
   return __assign.apply(this, arguments);
 };
 
+var __spreadArrays = this && this.__spreadArrays || function () {
+  for (var s = 0, i = 0, il = arguments.length; i < il; i++) {
+    s += arguments[i].length;
+  }
+
+  for (var r = Array(s), k = 0, i = 0; i < il; i++) {
+    for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++) {
+      r[k] = a[j];
+    }
+  }
+
+  return r;
+};
+
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.modifyTree2 = exports.RenderDom = exports.useState = exports.Component = exports.Element = exports._Element = void 0;
+exports.modifyTree2 = exports.RenderDom = exports.useState = exports.Component = exports.Element = exports.LReactElement = exports._Element = void 0;
 
 var _Element =
 /** @class */
@@ -172,20 +186,12 @@ function () {
 
       case 'f':
         {
-          currentUseStateSystem.takeout();
+          useStateController.reset();
           this._velem = this.maker.f(this.props);
-          var useStateSys = currentUseStateSystem.get();
-
-          if (useStateSys) {
-            var sys = useStateSys;
-            this._useStateSys = sys;
-
-            sys.repaint = function () {
-              return repaint2(_this);
-            };
-          }
-
-          currentUseStateSystem.pop();
+          this._useStateSysList = useStateController.maybeGetList(function () {
+            return repaint2(_this);
+          });
+          useStateController.reset();
         }
         ;
         break;
@@ -234,6 +240,7 @@ function () {
 }();
 
 exports._Element = _Element;
+exports.LReactElement = _Element;
 
 function Element(type, props, children) {
   if (props === void 0) {
@@ -329,55 +336,55 @@ function () {
   return UseStateSystem;
 }();
 
-var CurrentUseStateSystem =
+var UseStateController =
 /** @class */
 function () {
-  function CurrentUseStateSystem() {
-    this._list = [undefined];
+  function UseStateController() {
+    this.mode = 'push';
+    this.index = 0;
   }
 
-  CurrentUseStateSystem.prototype.takeout = function () {
-    this._list.push(undefined);
+  UseStateController.prototype.reset = function () {
+    this.mode = 'push';
+    this.list = [];
+    this.index = 0;
   };
 
-  CurrentUseStateSystem.prototype.get = function () {
-    return this._list[this.lastIndex];
+  UseStateController.prototype.getSys = function (s) {
+    if (this.mode === 'push') {
+      var sys = new UseStateSystem(s);
+      this.list.push(sys);
+      return sys;
+    } else {
+      // pop mode
+      return this.list[this.index++];
+    }
   };
 
-  Object.defineProperty(CurrentUseStateSystem.prototype, "lastIndex", {
-    get: function get() {
-      return this._list.length - 1;
-    },
-    enumerable: false,
-    configurable: true
-  });
+  UseStateController.prototype.setupForConsumer = function (list) {
+    this.list = list;
+    this.index = 0;
+    this.mode = 'pop';
+  };
 
-  CurrentUseStateSystem.prototype.useSlot = function (v) {
-    if (this._list[this.lastIndex]) {
-      return this._list[this.lastIndex];
+  UseStateController.prototype.maybeGetList = function (repaint) {
+    if (this.mode === 'push' && this.list.length) {
+      return __spreadArrays(this.list).map(function (sys) {
+        sys.repaint = repaint;
+        return sys;
+      });
     }
 
-    var x = new UseStateSystem(v);
-    this._list[this.lastIndex] = x;
-    return x;
+    return;
   };
 
-  CurrentUseStateSystem.prototype.useUseStateSys = function (sys) {
-    this.takeout();
-    this._list[this.lastIndex] = sys;
-  };
-
-  CurrentUseStateSystem.prototype.pop = function () {
-    if (this._list.length >= 1) this._list.pop();else this._list[0] = undefined;
-  };
-
-  return CurrentUseStateSystem;
+  return UseStateController;
 }();
 
-var currentUseStateSystem = new CurrentUseStateSystem();
+var useStateController = new UseStateController();
 
 var useState = function useState(state) {
-  var sys = currentUseStateSystem.useSlot(state);
+  var sys = useStateController.getSys(state);
   return [sys.v, function (v) {
     return sys.set(v);
   }];
@@ -459,17 +466,13 @@ function repaint2(e) {
   if (e.maker.kind === 'c') {
     newTree = e._c.render();
   } else if (e.maker.kind === 'f') {
-    var hasUSS = !!e._useStateSys;
-
-    if (hasUSS) {
-      currentUseStateSystem.useUseStateSys(e._useStateSys);
+    if (e._useStateSysList) {
+      useStateController.setupForConsumer(e._useStateSysList);
+      console.log('setup', useStateController);
     }
 
     newTree = e.maker.f(e.props);
-
-    if (hasUSS) {
-      currentUseStateSystem.pop();
-    }
+    useStateController.reset();
   }
 
   var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
@@ -514,7 +517,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
         tree._c.props = props;
       }
 
-      tree._useStateSys = prevTree._useStateSys;
+      tree._useStateSysList = prevTree._useStateSysList;
       tree.createElement(); // removeElements(prevTree);
       // unmountAll(prevTree._velem);
 
@@ -1588,7 +1591,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.GameComponent = void 0;
 
-var LReact = __importStar(require("/l_react"));
+var LReact = __importStar(require("../l_react"));
 
 var game_1 = require("./game");
 
@@ -2143,8 +2146,34 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"/l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
+},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
+
+var __extends = this && this.__extends || function () {
+  var _extendStatics = function extendStatics(d, b) {
+    _extendStatics = Object.setPrototypeOf || {
+      __proto__: []
+    } instanceof Array && function (d, b) {
+      d.__proto__ = b;
+    } || function (d, b) {
+      for (var p in b) {
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+      }
+    };
+
+    return _extendStatics(d, b);
+  };
+
+  return function (d, b) {
+    _extendStatics(d, b);
+
+    function __() {
+      this.constructor = d;
+    }
+
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+  };
+}();
 
 var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
   if (k2 === undefined) k2 = k;
@@ -2190,8 +2219,54 @@ var index_1 = require("./pacman/index");
 
 var Element = LReact.Element;
 
+var Thao =
+/** @class */
+function (_super) {
+  __extends(Thao, _super);
+
+  function Thao() {
+    return _super !== null && _super.apply(this, arguments) || this;
+  }
+
+  Thao.prototype.render = function () {
+    return Element('div', {}, ['Thao']);
+  };
+
+  return Thao;
+}(LReact.Component);
+
+function Luke(_a) {
+  var _b = LReact.useState('red'),
+      lukeColor = _b[0],
+      setLukeColor = _b[1];
+
+  var _c = LReact.useState('orange'),
+      lincolnColor = _c[0],
+      setLincolnColor = _c[1];
+
+  return Element('div', {}, [Element('div', {
+    style: {
+      color: lukeColor
+    }
+  }, ['Luke']), Element('div', {
+    style: {
+      color: lincolnColor
+    }
+  }, ['Lincoln']), Element('button', {
+    onClick: function onClick() {
+      var newColor = lukeColor === 'red' ? 'blue' : 'red';
+      setLukeColor(newColor);
+    }
+  }, ['change luke']), Element('button', {
+    onClick: function onClick() {
+      var newColor = lincolnColor === 'orange' ? 'purple' : 'orange';
+      setLincolnColor(newColor);
+    }
+  }, ['change lincoln'])]);
+}
+
 function App(_a) {
-  return Element('div', {}, [Element(index_1.GameComponent, {}, [])]);
+  return Element('div', {}, [Element(index_1.GameComponent), Element(Luke), Element(Thao)]);
 }
 
 ;
