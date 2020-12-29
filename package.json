@@ -1,0 +1,19 @@
+{
+  "name": "lreact-pacman",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "parcel build index.html --public-url ./dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@lukes611_gh:lukes611/lreact-pacman.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "cssnano": "^4.1.10"
+  }
+}
