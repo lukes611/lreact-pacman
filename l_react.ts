@@ -182,7 +182,7 @@ export const useState = <T>(state: T): UseStateConfig<T> => {
     ];
 };
 
-type ComponentConstructor<P extends object, S extends object> = new(p: P) => Component<P, S>;
+type ComponentConstructor<P extends object = {}, S extends object = {}> = new(p: P) => Component<P, S>;
 
 
 type BothFn = (

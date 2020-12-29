@@ -1588,7 +1588,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.GameComponent = void 0;
 
-var LReact = __importStar(require("../l_react"));
+var LReact = __importStar(require("/l_react"));
 
 var game_1 = require("./game");
 
@@ -2143,7 +2143,7 @@ var Block = function Block(_a) {
     }
   });
 };
-},{"../l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
+},{"/l_react":"l_react.ts","./game":"pacman/game.ts","./pt":"pacman/pt.ts","./render":"pacman/render.ts","./game_controls":"pacman/game_controls.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __createBinding = this && this.__createBinding || (Object.create ? function (o, m, k, k2) {
@@ -2191,7 +2191,7 @@ var index_1 = require("./pacman/index");
 var Element = LReact.Element;
 
 function App(_a) {
-  return Element('div', {}, [Element(index_1.GameComponent)]);
+  return Element('div', {}, [Element(index_1.GameComponent, {}, [])]);
 }
 
 ;
@@ -2224,7 +2224,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "62437" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60573" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
