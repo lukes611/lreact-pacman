@@ -239,7 +239,7 @@ function objectsShallowEqual(obj1: Record<string, any>, obj2: Record<string, any
 }
 
 export function RenderDom(e: _Element, domParent: HTMLElement) {
-    modifyTree2(e, undefined, domParent, undefined);
+    modifyTree(e, undefined, domParent, undefined);
 }
 
 function repaint2<P extends object, S extends object>(e: _Element) {
@@ -250,7 +250,6 @@ function repaint2<P extends object, S extends object>(e: _Element) {
     } else if (e.maker.kind === 'f') {
         if (e._useStateSysList) {
             useStateController.setupForConsumer(e._useStateSysList);
-            console.log('setup', useStateController);
         }
         newTree = e.maker.f(e.props);
         useStateController.reset();
@@ -258,12 +257,12 @@ function repaint2<P extends object, S extends object>(e: _Element) {
     
     const parent = oldTree?._parent;
     
-    modifyTree2(newTree, parent, oldTree._dom, oldTree);
+    modifyTree(newTree, parent, oldTree._dom, oldTree);
     e._velem = newTree;
 }
 
-export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLElement, prevTree?: _Element) {
-    const { props, children, maker } = tree;
+export function modifyTree(tree: _Element, parent?: _Element, parentDOM?: HTMLElement, prevTree?: _Element) {
+    const { props, maker } = tree;
     tree._dom = parentDOM;
     
     if (prevTree && prevTree.similar(tree)) {
@@ -277,7 +276,7 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
                 assignProps(tree._elem as HTMLElement, props);
             }
             loopThroughChildren(tree, prevTree, (ch, pc, i) => {
-                modifyTree2(ch, tree, tree._elem as HTMLElement, pc);
+                modifyTree(ch, tree, tree._elem as HTMLElement, pc);
             }, (pc, i) => {
                 if (prevTree._elem && pc._elem) {
                     prevTree._elem.removeChild(pc._elem)
@@ -294,7 +293,7 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             tree.createElement();
             // removeElements(prevTree);
             // unmountAll(prevTree._velem);
-            modifyTree2(tree._velem, tree, parentDOM, prevTree._velem);
+            modifyTree(tree._velem, tree, parentDOM, prevTree._velem);
             return;
         } else return;
     }
@@ -317,7 +316,7 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             assignProps(tree._elem as HTMLElement, props);
         }
         loopThroughChildren(tree, prevTree, (ch, pch, i) => {
-            modifyTree2(ch, tree, tree._elem as HTMLElement, undefined);
+            modifyTree(ch, tree, tree._elem as HTMLElement, undefined);
         }, (pc, i) => {
             removeElements(pc);
         });
@@ -326,7 +325,7 @@ export function modifyTree2(tree: _Element, parent?: _Element, parentDOM?: HTMLE
             removeElements(prevTree);
         }
         tree._c?.componentDidMount();
-        modifyTree2(tree._velem, tree, parentDOM, undefined);
+        modifyTree(tree._velem, tree, parentDOM, undefined);
     }
 }
 

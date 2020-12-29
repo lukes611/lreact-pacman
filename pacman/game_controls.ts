@@ -115,7 +115,6 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
             style: {
                 width: `100%`,
                 height: `${BUTTON_SIZE * 3}px`,
-                border: '1px solid red',
                 display: 'grid',
                 justifyContent: 'center',
                 gridAutoFlow: 'row',

@@ -153,7 +153,7 @@ var __spreadArrays = this && this.__spreadArrays || function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.modifyTree2 = exports.RenderDom = exports.useState = exports.Component = exports.Element = exports.LReactElement = exports._Element = void 0;
+exports.modifyTree = exports.RenderDom = exports.useState = exports.Component = exports.Element = exports.LReactElement = exports._Element = void 0;
 
 var _Element =
 /** @class */
@@ -454,7 +454,7 @@ function objectsShallowEqual(obj1, obj2) {
 }
 
 function RenderDom(e, domParent) {
-  modifyTree2(e, undefined, domParent, undefined);
+  modifyTree(e, undefined, domParent, undefined);
 }
 
 exports.RenderDom = RenderDom;
@@ -468,7 +468,6 @@ function repaint2(e) {
   } else if (e.maker.kind === 'f') {
     if (e._useStateSysList) {
       useStateController.setupForConsumer(e._useStateSysList);
-      console.log('setup', useStateController);
     }
 
     newTree = e.maker.f(e.props);
@@ -476,15 +475,14 @@ function repaint2(e) {
   }
 
   var parent = oldTree === null || oldTree === void 0 ? void 0 : oldTree._parent;
-  modifyTree2(newTree, parent, oldTree._dom, oldTree);
+  modifyTree(newTree, parent, oldTree._dom, oldTree);
   e._velem = newTree;
 }
 
-function modifyTree2(tree, parent, parentDOM, prevTree) {
+function modifyTree(tree, parent, parentDOM, prevTree) {
   var _a;
 
   var props = tree.props,
-      children = tree.children,
       maker = tree.maker;
   tree._dom = parentDOM;
 
@@ -501,7 +499,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       }
 
       loopThroughChildren(tree, prevTree, function (ch, pc, i) {
-        modifyTree2(ch, tree, tree._elem, pc);
+        modifyTree(ch, tree, tree._elem, pc);
       }, function (pc, i) {
         if (prevTree._elem && pc._elem) {
           prevTree._elem.removeChild(pc._elem);
@@ -521,7 +519,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
       tree.createElement(); // removeElements(prevTree);
       // unmountAll(prevTree._velem);
 
-      modifyTree2(tree._velem, tree, parentDOM, prevTree._velem);
+      modifyTree(tree._velem, tree, parentDOM, prevTree._velem);
       return;
     } else return;
   } // new elements / overwrite prevTree
@@ -549,7 +547,7 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
     }
 
     loopThroughChildren(tree, prevTree, function (ch, pch, i) {
-      modifyTree2(ch, tree, tree._elem, undefined);
+      modifyTree(ch, tree, tree._elem, undefined);
     }, function (pc, i) {
       removeElements(pc);
     });
@@ -559,11 +557,11 @@ function modifyTree2(tree, parent, parentDOM, prevTree) {
     }
 
     (_a = tree._c) === null || _a === void 0 ? void 0 : _a.componentDidMount();
-    modifyTree2(tree._velem, tree, parentDOM, undefined);
+    modifyTree(tree._velem, tree, parentDOM, undefined);
   }
 }
 
-exports.modifyTree2 = modifyTree2;
+exports.modifyTree = modifyTree;
 
 function unmountAll(t) {
   var _a;
@@ -1495,7 +1493,6 @@ function (_super) {
       style: {
         width: "100%",
         height: BUTTON_SIZE * 3 + "px",
-        border: '1px solid red',
         display: 'grid',
         justifyContent: 'center',
         gridAutoFlow: 'row',
