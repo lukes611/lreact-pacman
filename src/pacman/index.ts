@@ -345,11 +345,7 @@ const StartGameMenu = ({
                 type: 'checkbox',
                 checked: difficulty === d,
                 onChange: e => {
-                    if (d === difficulty) {
-                        e.target.checked = true;
-                    } else {
-                        setDifficulty(d);
-                    }
+                    setDifficulty(d);
                 },
             }),
         ]);
