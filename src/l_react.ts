@@ -66,22 +66,22 @@ type MakerType<P extends object, S extends object> =
     | ComponentConstructor<P, S>
     | ((props: P | undefined) => _Element);
 
-export function Element<P extends object, S extends object>(type: MakerType<P, S>, props: object = {}, children: (_Element | string | null)[] = []): _Element {
-    const properChildren = children.map(ch => {
+export function Element<P extends object, S extends object>(type: MakerType<P, S>, props: object = {}, _children: (_Element | string | null)[] = []): _Element {
+    const children = _children.map(ch => {
         if (typeof ch === 'string') return new _Element({ kind: 'string', value: ch }, {}, []);
         return ch;
     }).filter(x => x != null);
-    const fixedProps = {
+    const propsWithChildren = {
         ...props,
-        children: properChildren,
+        children: children,
     };
     if (typeof type === 'function') {
         if (isAComponentClass(type)) {
-            return new _Element({ kind: 'c', c: type as any }, fixedProps, properChildren);
+            return new _Element({ kind: 'c', c: type as any }, propsWithChildren, []);
         }
-        return new _Element({ kind: 'f', f: type as any }, fixedProps, properChildren);
+        return new _Element({ kind: 'f', f: type as any }, propsWithChildren, []);
     } else if (typeof type === 'string') {
-        return new _Element({ kind: 'html', type }, fixedProps, properChildren);
+        return new _Element({ kind: 'html', type }, props, children);
     }
 }
 
