@@ -64,29 +64,17 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         const { gameRenderScale, size } = this.gameRenderScaleAndSize;
 
         return Element('div', {}, [
-            Element('div', {
-                style: {
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    width: `${size.w}px`,
-                    margin: 'auto auto',
-                },
+            this.renderHeader(),
+            Element(LevelGameContainer, {
+                ...size,
+                menuScreen: this.maybeRenderGameMenuScreen(),
             }, [
-                Element(LiveGameScore, { g: this.game }),
-                Element('button', {
-                    style: {
-                        display: this.state.state === 'playing' ? 'block' : 'none',
-                    },
-                    onClick: () => {
-                        if (this.game.gameState !== 'playing') return;
-                        this.game.gameState = 'paused';
-                        this.setState({ state: 'paused' });
-                    },
-                }, ['pause']),
-            ]),
-            Element(LevelGameContainer, size, [
-                Element(RenderedLevel, { level: this.level, N: gameRenderScale }),
-                this.renderGameState(),
+                Element(RenderedLevel, {
+                    level: this.level,
+                    N: gameRenderScale,
+                    
+                }),
+                this.maybeRenderAnimatedGame(),
             ]),
             useMobileControls ? Element(ButtonControls, { controller: this.controller }) : Element(KeyboardInstructions),
         ]);
@@ -112,11 +100,32 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         }; 
     }
 
-    renderGameState() {
-        const { gameRenderScale } = this.gameRenderScaleAndSize;
+    renderHeader() {
+        const { size } = this.gameRenderScaleAndSize;
+        return Element('div', {
+            style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                width: `${size.w}px`,
+                margin: 'auto auto',
+            },
+        }, [
+            Element(LiveGameScore, { g: this.game }),
+            Element('button', {
+                style: {
+                    display: this.state.state === 'playing' ? 'block' : 'none',
+                },
+                onClick: () => {
+                    if (this.game.gameState !== 'playing') return;
+                    this.game.gameState = 'paused';
+                    this.setState({ state: 'paused' });
+                },
+            }, ['pause']),
+        ]);
+    }
+
+    maybeRenderGameMenuScreen() {
         switch (this.game.gameState) {
-            case 'playing':
-                return Element(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller, onGameStateChange: s => this.setState({ state: s }) }, []);
             case 'not-started':
                 return Element(MenuOverlay, {}, [
                     Element(StartGameMenu, {
@@ -141,6 +150,15 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                     message: 'paused',
                     buttonText: 'back',
                 })]);
+        }
+    }
+
+    maybeRenderAnimatedGame() {
+        const { gameRenderScale } = this.gameRenderScaleAndSize;
+        switch (this.game.gameState) {
+            case 'playing':
+                return Element(AnimatedGame, { game: this.game, gameRenderScale, controller: this.controller, onGameStateChange: s => this.setState({ state: s }) }, []);
+            default: return null;
         }
     }
 
@@ -440,18 +458,21 @@ const BigButton = ({
     }, [label]);
 };
 
-const LevelGameContainer = ({ w, h, children }: {
+const LevelGameContainer = ({ w, h, children, menuScreen }: {
     w: number,
     h: number,
     children?: LReact.LReactElement[],
+    menuScreen?: LReact.LReactElement,
 }) => {
     return Element('div', {
         style: {
+            width: '100%',
             backgroundColor: 'lightblue',
             display: 'grid',
             placeItems: 'center',
             overflow: 'hidden',
             boxSizing: 'border-box',
+            position: 'relative',
         },
     }, [
         Element('div', {
@@ -460,7 +481,10 @@ const LevelGameContainer = ({ w, h, children }: {
                 height: `${h}px`,
                 position: 'relative',
             },
-        }, children),
+        }, [
+            ...children,
+        ]),
+        menuScreen || null,
     ]);
 };
 
