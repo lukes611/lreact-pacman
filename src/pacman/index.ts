@@ -93,7 +93,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
     }
 
     get useMobileControls() {
-        return this.state.windowSize.w < 400;
+        return this.state.windowSize.w < 600;
     }
 
     get gameRenderScaleAndSize() {
@@ -306,6 +306,10 @@ const MenuOverlay = ({
 }) => {
     return Element('div', {
         style: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 1,
             width: '100%',
             height: '100%',
             backdropFilter: 'blur(5px)',
