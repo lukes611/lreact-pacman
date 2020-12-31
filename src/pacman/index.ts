@@ -47,7 +47,7 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
         window.addEventListener('resize', this.windowResizeListener);
     }
 
-    componentDidUnmount(){
+    componentWillUnmount(){
         if (this.windowResizeListener) {
             window.removeEventListener('resize', this.windowResizeListener);
             this.windowResizeListener = undefined;
@@ -171,19 +171,22 @@ class LiveGameScore extends LReact.Component<{ g: Game }, { score: number }> {
         };
         
     }
-    componentDidMount = () => {
+    componentDidMount() {
         this.intervalId = setInterval(this.maybeUpdateScore, 30);
-    };
-    componentDidUnmount = () => {
+    }
+
+    componentWillUnmount () {
         if (this.intervalId != null) clearInterval(this.intervalId);
         this.intervalId = undefined;
-    };
+    }
+
     maybeUpdateScore = () => {
         const newScore = this.props.g.getCandyRemaining();
         if (newScore !== this.state.score) {
             this.setState({ score: newScore });
         }
     };
+
     render() {
         return Element('div', {}, ['score: ' + this.state.score]);
     }
@@ -213,7 +216,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
         return new Pt(this.props.game.level.w, this.props.game.level.h);
     }
 
-    componentDidUnmount() {
+    componentWillUnmount() {
         this.killEventListeners?.();
         this.props.controller.reset();
         if (this.animationRequest !== undefined) {

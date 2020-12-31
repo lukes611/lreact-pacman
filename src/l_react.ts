@@ -92,7 +92,7 @@ export abstract class Component<Props extends {} = {}, State extends {} | void =
     _vnode?: _Element;
     paint?: (x: Component<Props, State>) => void;
     componentDidMount() {}
-    componentDidUnmount() {}
+    componentWillUnmount() {}
 
     constructor(props: Props) {
         this.props = props;
@@ -330,7 +330,7 @@ export function modifyTree(tree: _Element, parent?: _Element, parentDOM?: HTMLEl
 }
 
 function unmountAll(t: _Element) {
-    t._c?.componentDidUnmount();
+    t._c?.componentWillUnmount();
     t.children.forEach(unmountAll);
     if (t._velem) unmountAll(t._velem);
 }
