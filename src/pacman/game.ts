@@ -424,6 +424,7 @@ export class Game {
             .slice(0, ghostCount)
             .map(color => Ghost.create(this.level, color));
         // reset candy
+        this.candy = [];
         this.level.forEach((v, x, y) => {
             if (v && v !== ' ') {
                 this.candy.push(new Pt(x, y));
