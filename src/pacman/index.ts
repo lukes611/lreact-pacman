@@ -76,7 +76,9 @@ export class GameComponent extends LReact.Component<{}, GameComponentState> {
                 }),
                 this.maybeRenderAnimatedGame(),
             ]),
-            useMobileControls ? Element(ButtonControls, { controller: this.controller }) : Element(KeyboardInstructions),
+            useMobileControls
+                ? Element(ButtonControls, { controller: this.controller, enabled: this.state.state === 'playing' })
+                : Element(KeyboardInstructions),
         ]);
     }
 
@@ -290,6 +292,10 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
     gameLoop() {
         let prevDelta = 0;
         const loop = (delta: number) => {
+            if (this.props.controller.isPressed('escape')) {
+                this.props.game.gameState = 'paused';
+                this.props.onGameStateChange(this.props.game.gameState);
+            }
             const N = this.props.gameRenderScale;
             //console.log(N, this);
             const { ctx } = this;

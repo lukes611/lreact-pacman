@@ -1,10 +1,12 @@
 import * as LReact from '../l_react';
-import { Dir, DIRECTIONS } from './game';
+import { Dir } from './game';
+
+type ControllerKey = Dir | 'escape';
 
 export class Controller {
-    buttons: Map<Dir, boolean> = new Map();
+    buttons: Map<ControllerKey, boolean> = new Map();
     
-    isPressed(d: Dir): boolean {
+    isPressed(d: ControllerKey): boolean {
         return !!this.buttons.get(d);
     }
 
@@ -13,22 +15,24 @@ export class Controller {
     }
 
     setFromKeyboard(key: string, on: boolean) {
-        const d = Controller.keyboardKeyToDir(key);
+        console.log(key)
+        const d = Controller.keyToFn(key);
         if (d) {
             this.setV(d, on);
         }
     }
 
-    setV(d: Dir, on: boolean) {
+    setV(d: ControllerKey, on: boolean) {
         this.buttons.set(d, on);
     }
 
-    static keyboardKeyToDir(key: string): Dir | undefined {
+    static keyToFn(key: string): ControllerKey | undefined {
         switch (key) {
             case 'ArrowUp': return 'up';
             case 'ArrowRight': return 'right';
             case 'ArrowLeft': return 'left';
             case 'ArrowDown': return 'down';
+            case 'Escape': return 'escape';
         }
         return undefined;
     }
@@ -67,6 +71,7 @@ export const KeyboardInstructions = () => {
 
 type ButtonControlsProps = {
     controller: Controller,
+    enabled: boolean,
 };
 
 const BUTTON_SIZE = 70;
@@ -107,6 +112,7 @@ export class ButtonControls extends LReact.Component<ButtonControlsProps, {}> {
                     padding: '0',
                     margin: '0',
                     overflow: 'hidden',
+                    opacity: this.props.enabled ? 1 : 0.2,
                 },
             }, [this.dirToEmoji.get(d) ?? d]);
         });
