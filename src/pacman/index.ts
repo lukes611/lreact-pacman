@@ -311,7 +311,7 @@ class AnimatedGame extends LReact.Component<AnimatedGameProps, {}> {
             game.candy.forEach((c) => {
                 const p = c.add(1.5, 1.5).scale(N);
                 ctx.fillStyle = 'pink';
-                drawEllipse(ctx, p.x, p.y, 2, 2);
+                drawEllipse(ctx, p.x, p.y, 0.15 * N, 0.15 * N);
             });
             
             drawPacMan(ctx, game.pacman, N);
